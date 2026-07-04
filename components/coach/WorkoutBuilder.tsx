@@ -6,7 +6,7 @@ import { WorkoutTemplate, WorkoutExercise } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Pencil, Check, X } from 'lucide-react'
 
 interface Props {
   clientId: string
@@ -18,6 +18,8 @@ export default function WorkoutBuilder({ clientId }: Props) {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
   const [newDayName, setNewDayName] = useState('')
   const [newExercise, setNewExercise] = useState<Record<string, string>>({})
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingName, setEditingName] = useState('')
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
@@ -62,6 +64,16 @@ export default function WorkoutBuilder({ clientId }: Props) {
     setExpanded(prev => ({ ...prev, [data.id]: true }))
     setNewDayName('')
     toast.success('Workout day added')
+  }
+
+  async function renameDay(id: string) {
+    const name = editingName.trim()
+    if (!name) return
+    const { error } = await supabase.from('workout_templates').update({ name }).eq('id', id)
+    if (error) { toast.error('Failed to rename'); return }
+    setTemplates(prev => prev.map(t => t.id === id ? { ...t, name } : t))
+    setEditingId(null)
+    toast.success('Renamed')
   }
 
   async function deleteDay(id: string) {
@@ -124,25 +136,53 @@ export default function WorkoutBuilder({ clientId }: Props) {
       {templates.map(template => (
         <div key={template.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800">
-            <button
-              onClick={() => setExpanded(prev => ({ ...prev, [template.id]: !prev[template.id] }))}
-              className="flex items-center gap-2 text-white font-medium text-sm flex-1 text-left"
-            >
-              {expanded[template.id]
-                ? <ChevronDown className="w-4 h-4 text-zinc-400" />
-                : <ChevronRight className="w-4 h-4 text-zinc-400" />
-              }
-              {template.name}
-              <span className="text-zinc-500 text-xs font-normal">
-                ({(exercises[template.id] || []).length} exercises)
-              </span>
-            </button>
-            <button
-              onClick={() => deleteDay(template.id)}
-              className="text-zinc-600 hover:text-red-400 transition-colors ml-2"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            {editingId === template.id ? (
+              <div className="flex items-center gap-2 flex-1">
+                <Input
+                  value={editingName}
+                  onChange={(e) => setEditingName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') renameDay(template.id); if (e.key === 'Escape') setEditingId(null) }}
+                  className="bg-zinc-800 border-zinc-700 text-white h-7 text-sm"
+                  autoFocus
+                />
+                <button onClick={() => renameDay(template.id)} className="text-green-400 hover:text-green-300">
+                  <Check className="w-4 h-4" />
+                </button>
+                <button onClick={() => setEditingId(null)} className="text-zinc-500 hover:text-zinc-300">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setExpanded(prev => ({ ...prev, [template.id]: !prev[template.id] }))}
+                className="flex items-center gap-2 text-white font-medium text-sm flex-1 text-left"
+              >
+                {expanded[template.id]
+                  ? <ChevronDown className="w-4 h-4 text-zinc-400" />
+                  : <ChevronRight className="w-4 h-4 text-zinc-400" />
+                }
+                {template.name}
+                <span className="text-zinc-500 text-xs font-normal">
+                  ({(exercises[template.id] || []).length} exercises)
+                </span>
+              </button>
+            )}
+            {editingId !== template.id && (
+              <div className="flex items-center gap-2 ml-2">
+                <button
+                  onClick={() => { setEditingId(template.id); setEditingName(template.name) }}
+                  className="text-zinc-600 hover:text-zinc-300 transition-colors"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => deleteDay(template.id)}
+                  className="text-zinc-600 hover:text-red-400 transition-colors"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
 
           {expanded[template.id] && (

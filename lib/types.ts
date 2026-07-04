@@ -81,6 +81,28 @@ export interface SetLog {
   created_at: string
 }
 
+export interface Measurement {
+  id: string
+  client_id: string
+  date: string
+  waist_in: number | null
+  hips_in: number | null
+  chest_in: number | null
+  left_arm_in: number | null
+  right_arm_in: number | null
+  left_quad_in: number | null
+  right_quad_in: number | null
+  notes: string | null
+  created_at: string
+}
+
+export interface CoachNote {
+  id: string
+  client_id: string
+  content: string
+  updated_at: string
+}
+
 export interface ProgressPhoto {
   id: string
   client_id: string

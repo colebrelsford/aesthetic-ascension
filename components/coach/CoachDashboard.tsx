@@ -29,7 +29,7 @@ export default function CoachDashboard({ profile }: Props) {
     return (
       <div className="min-h-screen bg-zinc-950">
         <Navbar profile={profile} />
-        <ClientDetail client={selectedClient} onBack={() => setSelectedClient(null)} />
+        <ClientDetail client={selectedClient} coachId={profile.id} onBack={() => setSelectedClient(null)} />
       </div>
     )
   }
@@ -54,6 +54,7 @@ export default function CoachDashboard({ profile }: Props) {
               <ClientCard
                 key={client.id}
                 client={client}
+                coachId={profile.id}
                 onClick={() => setSelectedClient(client)}
               />
             ))}

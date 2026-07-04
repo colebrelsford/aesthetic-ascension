@@ -11,13 +11,15 @@ import PlanEditor from './PlanEditor'
 import PhotoComparison from './PhotoComparison'
 import CheckinList from './CheckinList'
 import ProgressionView from './ProgressionView'
+import CoachNotes from './CoachNotes'
 
 interface Props {
   client: Profile
+  coachId: string
   onBack: () => void
 }
 
-export default function ClientDetail({ client, onBack }: Props) {
+export default function ClientDetail({ client, coachId, onBack }: Props) {
   const [plan, setPlan] = useState<Plan | null>(null)
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [checkins, setCheckins] = useState<WeeklyCheckin[]>([])
@@ -45,6 +47,22 @@ export default function ClientDetail({ client, onBack }: Props) {
     load()
   }, [client.id])
 
+  // Mark all check-ins as read when coach opens this client
+  useEffect(() => {
+    async function markRead() {
+      const { data: checkinData } = await supabase
+        .from('weekly_checkins')
+        .select('id')
+        .eq('client_id', client.id)
+
+      if (!checkinData || checkinData.length === 0) return
+
+      const reads = checkinData.map(c => ({ checkin_id: c.id, coach_id: coachId }))
+      await supabase.from('checkin_reads').upsert(reads, { onConflict: 'checkin_id,coach_id' })
+    }
+    markRead()
+  }, [client.id, coachId])
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       <div className="flex items-center gap-3 mb-6">
@@ -70,6 +88,7 @@ export default function ClientDetail({ client, onBack }: Props) {
           <TabsTrigger value="plans" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Plans</TabsTrigger>
           <TabsTrigger value="checkins" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Check-ins</TabsTrigger>
           <TabsTrigger value="photos" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Photos</TabsTrigger>
+          <TabsTrigger value="notes" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Notes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -81,11 +100,7 @@ export default function ClientDetail({ client, onBack }: Props) {
         </TabsContent>
 
         <TabsContent value="plans">
-          <PlanEditor
-            clientId={client.id}
-            plan={plan}
-            onSaved={setPlan}
-          />
+          <PlanEditor clientId={client.id} plan={plan} onSaved={setPlan} />
         </TabsContent>
 
         <TabsContent value="checkins">
@@ -94,6 +109,10 @@ export default function ClientDetail({ client, onBack }: Props) {
 
         <TabsContent value="photos">
           <PhotoComparison photos={photos} />
+        </TabsContent>
+
+        <TabsContent value="notes">
+          <CoachNotes clientId={client.id} />
         </TabsContent>
       </Tabs>
     </div>

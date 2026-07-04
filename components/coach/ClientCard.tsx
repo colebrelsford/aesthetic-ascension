@@ -7,12 +7,14 @@ import { ChevronRight, TrendingDown, TrendingUp, Minus } from 'lucide-react'
 
 interface Props {
   client: Profile
+  coachId: string
   onClick: () => void
 }
 
-export default function ClientCard({ client, onClick }: Props) {
+export default function ClientCard({ client, coachId, onClick }: Props) {
   const [latestWeight, setLatestWeight] = useState<WeightLog | null>(null)
   const [prevWeight, setPrevWeight] = useState<WeightLog | null>(null)
+  const [unreadCount, setUnreadCount] = useState(0)
   const supabase = createClient()
 
   useEffect(() => {
@@ -26,7 +28,21 @@ export default function ClientCard({ client, onClick }: Props) {
         if (data?.[0]) setLatestWeight(data[0])
         if (data?.[1]) setPrevWeight(data[1])
       })
-  }, [client.id])
+
+    // Count unread check-ins
+    supabase
+      .from('weekly_checkins')
+      .select('id, checkin_reads!left(coach_id)')
+      .eq('client_id', client.id)
+      .then(({ data }) => {
+        if (!data) return
+        const unread = data.filter(c => {
+          const reads = c.checkin_reads as { coach_id: string }[]
+          return !reads.some(r => r.coach_id === coachId)
+        })
+        setUnreadCount(unread.length)
+      })
+  }, [client.id, coachId])
 
   const diff = latestWeight && prevWeight ? latestWeight.weight_lbs - prevWeight.weight_lbs : null
 
@@ -37,7 +53,14 @@ export default function ClientCard({ client, onClick }: Props) {
     >
       <div className="flex items-start justify-between">
         <div>
-          <p className="font-medium text-white">{client.full_name}</p>
+          <div className="flex items-center gap-2">
+            <p className="font-medium text-white">{client.full_name}</p>
+            {unreadCount > 0 && (
+              <span className="bg-white text-black text-xs font-bold px-1.5 py-0.5 rounded-full leading-none">
+                {unreadCount} new
+              </span>
+            )}
+          </div>
           <p className="text-zinc-500 text-xs mt-0.5">{client.email}</p>
         </div>
         <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors mt-0.5" />
