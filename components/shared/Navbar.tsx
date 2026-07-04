@@ -15,14 +15,8 @@ export default function Navbar({ profile }: Props) {
       backdropFilter: 'blur(12px)',
     }}>
       <div className="flex items-center gap-3">
-        {/* Gold icon mark */}
-        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{
-          background: 'linear-gradient(135deg, #C9A84C 0%, #E8C97A 100%)',
-        }}>
-          <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
-            <path d="M16 2L20 10H28L22 15L24 23L16 18L8 23L10 15L4 10H12L16 2Z" fill="#000" />
-          </svg>
-        </div>
+        {/* Logo mark */}
+        <img src="/logo.png" alt="Aesthetic Ascension" className="w-8 h-8 rounded-lg object-cover shrink-0" />
         <span className="font-bold text-sm tracking-wide" style={{
           background: 'linear-gradient(135deg, #C9A84C 0%, #E8C97A 60%, #C9A84C 100%)',
           WebkitBackgroundClip: 'text',

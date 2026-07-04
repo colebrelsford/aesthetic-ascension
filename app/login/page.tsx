@@ -41,12 +41,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm relative z-10">
         {/* Logo / Brand */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-5"
-            style={{ background: 'linear-gradient(135deg, #C9A84C 0%, #E8C97A 50%, #C9A84C 100%)' }}>
-            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
-              <path d="M16 2L20 10H28L22 15L24 23L16 18L8 23L10 15L4 10H12L16 2Z" fill="#000" />
-            </svg>
-          </div>
+          <img src="/logo.png" alt="Aesthetic Ascension" className="w-24 h-24 rounded-2xl object-cover mb-1 mx-auto" />
           <h1 className="text-3xl font-bold tracking-tight" style={{
             background: 'linear-gradient(135deg, #C9A84C 0%, #E8C97A 50%, #C9A84C 100%)',
             WebkitBackgroundClip: 'text',
