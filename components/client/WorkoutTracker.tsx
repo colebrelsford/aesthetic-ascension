@@ -2,102 +2,76 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Plan, SetLog, WorkoutSession } from '@/lib/types'
-import { parseExercisesFromHtml } from '@/lib/parseExercises'
+import { WorkoutTemplate, WorkoutExercise, SetLog } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { ChevronRight, ChevronDown, Plus, Trash2, TrendingUp } from 'lucide-react'
+import { ChevronRight, ArrowLeft, Plus, Trash2, Dumbbell } from 'lucide-react'
 
 interface Props {
   clientId: string
-  plan: Plan | null
 }
 
-interface SessionWithSets extends WorkoutSession {
-  sets: SetLog[]
+interface ExerciseWithHistory extends WorkoutExercise {
+  lastSets: SetLog[]
 }
 
-export default function WorkoutTracker({ clientId, plan }: Props) {
-  const [exercises, setExercises] = useState<string[]>([])
-  const [selectedExercise, setSelectedExercise] = useState<string | null>(null)
-  const [history, setHistory] = useState<SessionWithSets[]>([])
-  const [todaySets, setTodaySets] = useState<{ weight: string; reps: string }[]>([{ weight: '', reps: '' }])
-  const [saving, setSaving] = useState(false)
+export default function WorkoutTracker({ clientId }: Props) {
+  const [templates, setTemplates] = useState<WorkoutTemplate[]>([])
+  const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null)
+  const [exercises, setExercises] = useState<ExerciseWithHistory[]>([])
+  const [sets, setSets] = useState<Record<string, { weight: string; reps: string }[]>>({})
+  const [sessionId, setSessionId] = useState<string | null>(null)
+  const [saving, setSaving] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
-    if (plan?.training_split) {
-      setExercises(parseExercisesFromHtml(plan.training_split))
-    }
-  }, [plan])
-
-  useEffect(() => {
-    if (!selectedExercise) return
-    loadHistory(selectedExercise)
-  }, [selectedExercise])
-
-  async function loadHistory(exercise: string) {
-    const { data } = await supabase
-      .from('set_logs')
-      .select('*, workout_sessions(session_date)')
+    supabase
+      .from('workout_templates')
+      .select('*')
       .eq('client_id', clientId)
-      .eq('exercise_name', exercise)
-      .order('created_at', { ascending: false })
-      .limit(50)
+      .order('display_order')
+      .then(({ data }) => { if (data) setTemplates(data) })
+  }, [clientId])
 
-    if (!data) return
+  async function selectWorkout(template: WorkoutTemplate) {
+    setLoading(true)
+    setSelectedTemplate(template)
 
-    // Group by session
-    const sessionMap = new Map<string, SessionWithSets>()
-    for (const row of data) {
-      const session = row.workout_sessions as { session_date: string }
-      const sid = row.session_id
-      if (!sessionMap.has(sid)) {
-        sessionMap.set(sid, {
-          id: sid,
-          client_id: clientId,
-          session_date: session.session_date,
-          notes: null,
-          created_at: row.created_at,
-          sets: [],
-        })
-      }
-      sessionMap.get(sid)!.sets.push(row)
+    const { data: exs } = await supabase
+      .from('workout_exercises')
+      .select('*')
+      .eq('template_id', template.id)
+      .order('display_order')
+
+    if (!exs) { setLoading(false); return }
+
+    // Get last session's set logs for each exercise
+    const exercisesWithHistory: ExerciseWithHistory[] = []
+    for (const ex of exs) {
+      const { data: lastSession } = await supabase
+        .from('set_logs')
+        .select('*')
+        .eq('client_id', clientId)
+        .eq('exercise_name', ex.name)
+        .order('created_at', { ascending: false })
+        .limit(10)
+
+      exercisesWithHistory.push({ ...ex, lastSets: lastSession || [] })
     }
 
-    const sorted = Array.from(sessionMap.values()).sort(
-      (a, b) => new Date(b.session_date).getTime() - new Date(a.session_date).getTime()
-    )
-    setHistory(sorted)
-    setTodaySets([{ weight: '', reps: '' }])
-  }
+    setExercises(exercisesWithHistory)
 
-  function addSet() {
-    setTodaySets(prev => [...prev, { weight: '', reps: '' }])
-  }
-
-  function removeSet(i: number) {
-    setTodaySets(prev => prev.filter((_, idx) => idx !== i))
-  }
-
-  function updateSet(i: number, field: 'weight' | 'reps', value: string) {
-    setTodaySets(prev => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s))
-  }
-
-  async function handleSave() {
-    if (!selectedExercise) return
-    const validSets = todaySets.filter(s => s.weight || s.reps)
-    if (validSets.length === 0) {
-      toast.error('Enter at least one set')
-      return
+    // Initialize empty sets for today
+    const initSets: Record<string, { weight: string; reps: string }[]> = {}
+    for (const ex of exs) {
+      initSets[ex.id] = [{ weight: '', reps: '' }]
     }
-
-    setSaving(true)
-    const today = new Date().toISOString().split('T')[0]
+    setSets(initSets)
 
     // Get or create today's session
-    let sessionId: string
+    const today = new Date().toISOString().split('T')[0]
     const { data: existing } = await supabase
       .from('workout_sessions')
       .select('id')
@@ -106,101 +80,151 @@ export default function WorkoutTracker({ clientId, plan }: Props) {
       .single()
 
     if (existing) {
-      sessionId = existing.id
-      // Delete existing sets for this exercise today so we can replace
-      await supabase
+      setSessionId(existing.id)
+      // Load any sets already logged today for this workout
+      const { data: todaySets } = await supabase
         .from('set_logs')
-        .delete()
-        .eq('session_id', sessionId)
-        .eq('exercise_name', selectedExercise)
+        .select('*')
+        .eq('session_id', existing.id)
+        .eq('client_id', clientId)
+
+      if (todaySets && todaySets.length > 0) {
+        const loadedSets: Record<string, { weight: string; reps: string }[]> = {}
+        for (const ex of exs) {
+          const exSets = todaySets.filter(s => s.exercise_name === ex.name)
+          if (exSets.length > 0) {
+            loadedSets[ex.id] = exSets
+              .sort((a, b) => a.set_number - b.set_number)
+              .map(s => ({ weight: s.weight_lbs?.toString() || '', reps: s.reps?.toString() || '' }))
+          }
+        }
+        if (Object.keys(loadedSets).length > 0) {
+          setSets(prev => ({ ...prev, ...loadedSets }))
+        }
+      }
     } else {
-      const { data: newSession, error } = await supabase
+      const { data: newSession } = await supabase
         .from('workout_sessions')
         .insert({ client_id: clientId, session_date: today })
         .select()
         .single()
-      if (error || !newSession) {
-        toast.error('Failed to save')
-        setSaving(false)
-        return
-      }
-      sessionId = newSession.id
+      if (newSession) setSessionId(newSession.id)
     }
 
-    const setsToInsert = validSets.map((s, i) => ({
-      session_id: sessionId,
-      client_id: clientId,
-      exercise_name: selectedExercise,
-      set_number: i + 1,
-      weight_lbs: s.weight ? parseFloat(s.weight) : null,
-      reps: s.reps ? parseInt(s.reps) : null,
-    }))
-
-    const { error } = await supabase.from('set_logs').insert(setsToInsert)
-    setSaving(false)
-
-    if (error) {
-      toast.error('Failed to save sets')
-      return
-    }
-
-    toast.success('Sets saved!')
-    loadHistory(selectedExercise)
+    setLoading(false)
   }
 
-  const lastSession = history[0]
+  function addSet(exerciseId: string) {
+    setSets(prev => ({ ...prev, [exerciseId]: [...(prev[exerciseId] || []), { weight: '', reps: '' }] }))
+  }
 
-  if (exercises.length === 0) {
+  function removeSet(exerciseId: string, i: number) {
+    setSets(prev => ({ ...prev, [exerciseId]: prev[exerciseId].filter((_, idx) => idx !== i) }))
+  }
+
+  function updateSet(exerciseId: string, i: number, field: 'weight' | 'reps', value: string) {
+    setSets(prev => ({
+      ...prev,
+      [exerciseId]: prev[exerciseId].map((s, idx) => idx === i ? { ...s, [field]: value } : s)
+    }))
+  }
+
+  async function saveExercise(ex: ExerciseWithHistory) {
+    if (!sessionId) return
+    const validSets = (sets[ex.id] || []).filter(s => s.weight || s.reps)
+    if (validSets.length === 0) { toast.error('Enter at least one set'); return }
+
+    setSaving(ex.id)
+
+    // Replace existing sets for this exercise in today's session
+    await supabase.from('set_logs').delete().eq('session_id', sessionId).eq('exercise_name', ex.name)
+
+    const { error } = await supabase.from('set_logs').insert(
+      validSets.map((s, i) => ({
+        session_id: sessionId,
+        client_id: clientId,
+        exercise_name: ex.name,
+        set_number: i + 1,
+        weight_lbs: s.weight ? parseFloat(s.weight) : null,
+        reps: s.reps ? parseInt(s.reps) : null,
+      }))
+    )
+
+    setSaving(null)
+    if (error) { toast.error('Failed to save'); return }
+    toast.success(`${ex.name} saved!`)
+  }
+
+  if (templates.length === 0) {
     return (
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 text-center text-zinc-500 text-sm">
-        No exercises found. Make sure your training split is saved in your plan.
+        Your coach hasn&apos;t set up your workouts yet. Check back soon!
+      </div>
+    )
+  }
+
+  if (!selectedTemplate) {
+    return (
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+        <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2">
+          <Dumbbell className="w-4 h-4 text-zinc-400" />
+          <h3 className="font-medium text-white text-sm">Select Today&apos;s Workout</h3>
+        </div>
+        <div className="divide-y divide-zinc-800">
+          {templates.map(t => (
+            <button
+              key={t.id}
+              onClick={() => selectWorkout(t)}
+              className="w-full flex items-center justify-between px-4 py-4 hover:bg-zinc-800 transition-colors text-left"
+            >
+              <span className="text-white font-medium">{t.name}</span>
+              <ChevronRight className="w-4 h-4 text-zinc-600" />
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-8 text-center text-zinc-500 text-sm">
+        Loading workout…
       </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      {!selectedExercise ? (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-          <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-zinc-400" />
-            <h3 className="font-medium text-white text-sm">Select an Exercise</h3>
-          </div>
-          <div className="divide-y divide-zinc-800">
-            {exercises.map(ex => (
-              <button
-                key={ex}
-                onClick={() => setSelectedExercise(ex)}
-                className="w-full flex items-center justify-between px-4 py-3 hover:bg-zinc-800 transition-colors text-left"
-              >
-                <span className="text-zinc-200 text-sm">{ex}</span>
-                <ChevronRight className="w-4 h-4 text-zinc-600" />
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <button
-            onClick={() => setSelectedExercise(null)}
-            className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-sm transition-colors"
-          >
-            <ChevronDown className="w-4 h-4 rotate-90" />
-            Back to exercises
-          </button>
+      <button
+        onClick={() => { setSelectedTemplate(null); setExercises([]); setSets({}) }}
+        className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-sm transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        Back to workouts
+      </button>
 
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-4">
-            <h3 className="font-semibold text-white">{selectedExercise}</h3>
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3">
+        <h3 className="font-semibold text-white">{selectedTemplate.name}</h3>
+        <p className="text-zinc-500 text-xs mt-0.5">
+          {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+        </p>
+      </div>
 
-            {/* Last session reference */}
-            {lastSession && (
-              <div className="bg-zinc-800 rounded-lg p-3">
-                <p className="text-zinc-400 text-xs mb-2">
-                  Last session — {new Date(lastSession.session_date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                </p>
+      {exercises.map(ex => {
+        // Group last sets by session (get most recent session only)
+        const lastSessionSets = ex.lastSets.slice(0, 6)
+
+        return (
+          <div key={ex.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3">
+            <h4 className="font-medium text-white">{ex.name}</h4>
+
+            {lastSessionSets.length > 0 && (
+              <div className="bg-zinc-800 rounded-lg px-3 py-2">
+                <p className="text-zinc-500 text-xs mb-1.5">Last session</p>
                 <div className="flex flex-wrap gap-2">
-                  {lastSession.sets.sort((a, b) => a.set_number - b.set_number).map(s => (
-                    <span key={s.id} className="text-white text-sm font-medium bg-zinc-700 px-2 py-0.5 rounded">
+                  {lastSessionSets.map(s => (
+                    <span key={s.id} className="text-zinc-300 text-xs font-medium">
                       {s.weight_lbs ? `${s.weight_lbs}lb` : '—'} × {s.reps ?? '—'}
                     </span>
                   ))}
@@ -208,80 +232,60 @@ export default function WorkoutTracker({ clientId, plan }: Props) {
               </div>
             )}
 
-            {/* Log today's sets */}
             <div className="space-y-2">
-              <p className="text-zinc-400 text-xs">Log today&apos;s sets</p>
-              <div className="space-y-2">
-                {todaySets.map((s, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <span className="text-zinc-500 text-xs w-10">Set {i + 1}</span>
-                    <Input
-                      type="number"
-                      placeholder="lbs"
-                      value={s.weight}
-                      onChange={(e) => updateSet(i, 'weight', e.target.value)}
-                      className="bg-zinc-800 border-zinc-700 text-white w-20 h-8 text-sm"
-                    />
-                    <span className="text-zinc-600 text-xs">×</span>
-                    <Input
-                      type="number"
-                      placeholder="reps"
-                      value={s.reps}
-                      onChange={(e) => updateSet(i, 'reps', e.target.value)}
-                      className="bg-zinc-800 border-zinc-700 text-white w-20 h-8 text-sm"
-                    />
-                    {todaySets.length > 1 && (
-                      <button onClick={() => removeSet(i)} className="text-zinc-600 hover:text-red-400 transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                ))}
+              <div className="grid grid-cols-[40px_1fr_12px_1fr_28px] gap-2 items-center">
+                <span className="text-zinc-600 text-xs">Set</span>
+                <span className="text-zinc-600 text-xs">Weight (lbs)</span>
+                <span />
+                <span className="text-zinc-600 text-xs">Reps</span>
+                <span />
               </div>
+              {(sets[ex.id] || []).map((s, i) => (
+                <div key={i} className="grid grid-cols-[40px_1fr_12px_1fr_28px] gap-2 items-center">
+                  <span className="text-zinc-500 text-xs">{i + 1}</span>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={s.weight}
+                    onChange={(e) => updateSet(ex.id, i, 'weight', e.target.value)}
+                    className="bg-zinc-800 border-zinc-700 text-white h-8 text-sm"
+                  />
+                  <span className="text-zinc-600 text-xs text-center">×</span>
+                  <Input
+                    type="number"
+                    placeholder="0"
+                    value={s.reps}
+                    onChange={(e) => updateSet(ex.id, i, 'reps', e.target.value)}
+                    className="bg-zinc-800 border-zinc-700 text-white h-8 text-sm"
+                  />
+                  {(sets[ex.id] || []).length > 1 && (
+                    <button onClick={() => removeSet(ex.id, i)} className="text-zinc-600 hover:text-red-400 transition-colors flex justify-center">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between pt-1">
               <button
-                onClick={addSet}
-                className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-xs transition-colors mt-1"
+                onClick={() => addSet(ex.id)}
+                className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-xs transition-colors"
               >
-                <Plus className="w-3.5 h-3.5" />
-                Add set
+                <Plus className="w-3.5 h-3.5" /> Add set
               </button>
+              <Button
+                size="sm"
+                onClick={() => saveExercise(ex)}
+                disabled={saving === ex.id}
+                className="bg-white text-black hover:bg-zinc-200 h-7 px-3 text-xs"
+              >
+                {saving === ex.id ? 'Saving…' : 'Save'}
+              </Button>
             </div>
-
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full bg-white text-black hover:bg-zinc-200 font-medium"
-            >
-              {saving ? 'Saving…' : 'Save Sets'}
-            </Button>
           </div>
-
-          {/* History */}
-          {history.length > 0 && (
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-              <div className="px-4 py-3 border-b border-zinc-800">
-                <h4 className="text-sm font-medium text-white">History</h4>
-              </div>
-              <div className="divide-y divide-zinc-800">
-                {history.map(session => (
-                  <div key={session.id} className="px-4 py-3">
-                    <p className="text-zinc-400 text-xs mb-1.5">
-                      {new Date(session.session_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {session.sets.sort((a, b) => a.set_number - b.set_number).map(s => (
-                        <span key={s.id} className="text-white text-sm font-medium">
-                          {s.weight_lbs ? `${s.weight_lbs}lb` : '—'} × {s.reps ?? '—'}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+        )
+      })}
     </div>
   )
 }

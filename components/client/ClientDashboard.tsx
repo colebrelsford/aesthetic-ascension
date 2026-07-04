@@ -59,7 +59,7 @@ export default function ClientDashboard({ profile }: Props) {
           </TabsContent>
 
           <TabsContent value="progression">
-            <WorkoutTracker clientId={profile.id} plan={plan} />
+            <WorkoutTracker clientId={profile.id} />
           </TabsContent>
 
           <TabsContent value="plans">

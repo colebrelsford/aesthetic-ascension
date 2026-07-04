@@ -45,6 +45,23 @@ export interface WeeklyCheckin {
   created_at: string
 }
 
+export interface WorkoutTemplate {
+  id: string
+  client_id: string
+  name: string
+  display_order: number
+  created_at: string
+}
+
+export interface WorkoutExercise {
+  id: string
+  template_id: string
+  client_id: string
+  name: string
+  display_order: number
+  created_at: string
+}
+
 export interface WorkoutSession {
   id: string
   client_id: string
