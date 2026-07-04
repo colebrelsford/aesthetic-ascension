@@ -11,7 +11,9 @@ import WeeklyCheckinForm from './WeeklyCheckinForm'
 import CheckinHistory from './CheckinHistory'
 import WorkoutTracker from './WorkoutTracker'
 import MeasurementsLogger from './MeasurementsLogger'
-import PasswordChange from './PasswordChange'
+import ClientSettings from './PasswordChange'
+import MacroTargets from './MacroTargets'
+import ProfilePhotoUpload from './ProfilePhotoUpload'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Props {
@@ -21,6 +23,7 @@ interface Props {
 export default function ClientDashboard({ profile }: Props) {
   const [plan, setPlan] = useState<Plan | null>(null)
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url)
   const supabase = createClient()
 
   useEffect(() => {
@@ -60,6 +63,7 @@ export default function ClientDashboard({ profile }: Props) {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
+            <MacroTargets plan={plan} />
             <WeightLogger clientId={profile.id} onLogged={onWeightLogged} />
             <WeightChart logs={weightLogs} />
           </TabsContent>
@@ -84,8 +88,12 @@ export default function ClientDashboard({ profile }: Props) {
             <CheckinHistory clientId={profile.id} />
           </TabsContent>
 
-          <TabsContent value="settings">
-            <PasswordChange />
+          <TabsContent value="settings" className="space-y-4">
+            <ProfilePhotoUpload
+              profile={{ ...profile, avatar_url: avatarUrl }}
+              onUpdated={setAvatarUrl}
+            />
+            <ClientSettings profile={profile} />
           </TabsContent>
         </Tabs>
       </div>

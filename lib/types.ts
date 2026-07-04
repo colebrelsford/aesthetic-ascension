@@ -5,6 +5,9 @@ export interface Profile {
   email: string
   full_name: string
   role: Role
+  avatar_url: string | null
+  checkin_deadline_day: number
+  checkin_reminder_enabled: boolean
   created_at: string
 }
 
@@ -14,6 +17,10 @@ export interface Plan {
   meal_plan: string | null
   training_split: string | null
   supplement_protocol: string | null
+  calories: number | null
+  protein_g: number | null
+  carbs_g: number | null
+  fat_g: number | null
   updated_at: string
 }
 
