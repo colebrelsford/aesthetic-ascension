@@ -28,7 +28,7 @@ export default function CoachDashboard({ profile }: Props) {
 
   if (selectedClient) {
     return (
-      <div className="min-h-screen bg-zinc-950">
+      <div className="min-h-screen bg-black">
         <Navbar profile={profile} />
         <ClientDetail client={selectedClient} coachId={profile.id} onBack={() => setSelectedClient(null)} />
       </div>
@@ -36,22 +36,36 @@ export default function CoachDashboard({ profile }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className="min-h-screen bg-black">
       <Navbar profile={profile} />
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
-        {/* Activity feed */}
+
+      {/* Coach hero */}
+      <div className="px-4 pt-8 pb-6 max-w-5xl mx-auto">
+        <p className="text-[#888] text-xs uppercase tracking-widest mb-1">Coach Portal</p>
+        <h2 className="text-2xl font-bold text-white">Dashboard</h2>
+        <div className="mt-3 h-px w-12" style={{ background: 'linear-gradient(90deg, #C9A84C, transparent)' }} />
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 pb-10 space-y-6">
         <ActivityFeed coachId={profile.id} />
 
-        {/* Client list */}
         <div>
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-zinc-400" />
-            <h2 className="text-lg font-semibold text-white">Your Clients</h2>
-            <span className="text-zinc-500 text-sm ml-1">({clients.length})</span>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.15)' }}>
+              <Users className="w-3.5 h-3.5" style={{ color: '#C9A84C' }} />
+            </div>
+            <h2 className="text-base font-semibold text-white">Your Clients</h2>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{
+              background: 'rgba(201,168,76,0.1)',
+              border: '1px solid rgba(201,168,76,0.2)',
+              color: '#C9A84C',
+            }}>{clients.length}</span>
           </div>
 
           {clients.length === 0 ? (
-            <div className="text-zinc-500 text-sm text-center py-12 border border-dashed border-zinc-800 rounded-xl">
+            <div className="rounded-2xl text-[#555] text-sm text-center py-14" style={{
+              border: '1px dashed rgba(201,168,76,0.15)',
+            }}>
               No clients yet. Add clients through the Supabase dashboard.
             </div>
           ) : (

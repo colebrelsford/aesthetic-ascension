@@ -1,7 +1,7 @@
 'use client'
 
 import { Profile } from '@/lib/types'
-import { LogOut, Dumbbell } from 'lucide-react'
+import { LogOut } from 'lucide-react'
 
 interface Props {
   profile: Profile
@@ -9,21 +9,45 @@ interface Props {
 
 export default function Navbar({ profile }: Props) {
   return (
-    <nav className="border-b border-zinc-800 bg-zinc-900 px-4 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <Dumbbell className="w-5 h-5 text-white" />
-        <span className="font-semibold text-white text-sm">Aesthetic Ascension</span>
+    <nav className="px-5 py-3.5 flex items-center justify-between sticky top-0 z-50" style={{
+      background: 'rgba(0,0,0,0.85)',
+      borderBottom: '1px solid rgba(201,168,76,0.15)',
+      backdropFilter: 'blur(12px)',
+    }}>
+      <div className="flex items-center gap-3">
+        {/* Gold icon mark */}
+        <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0" style={{
+          background: 'linear-gradient(135deg, #C9A84C 0%, #E8C97A 100%)',
+        }}>
+          <svg width="16" height="16" viewBox="0 0 32 32" fill="none">
+            <path d="M16 2L20 10H28L22 15L24 23L16 18L8 23L10 15L4 10H12L16 2Z" fill="#000" />
+          </svg>
+        </div>
+        <span className="font-bold text-sm tracking-wide" style={{
+          background: 'linear-gradient(135deg, #C9A84C 0%, #E8C97A 60%, #C9A84C 100%)',
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+        }}>
+          Aesthetic Ascension
+        </span>
         {profile.role === 'coach' && (
-          <span className="ml-2 text-xs bg-white text-black px-2 py-0.5 rounded-full font-medium">Coach</span>
+          <span className="text-xs px-2 py-0.5 rounded-full font-semibold" style={{
+            background: 'rgba(201,168,76,0.15)',
+            border: '1px solid rgba(201,168,76,0.3)',
+            color: '#C9A84C',
+          }}>
+            Coach
+          </span>
         )}
       </div>
 
-      <div className="flex items-center gap-3">
-        <span className="text-zinc-400 text-sm">{profile.full_name}</span>
+      <div className="flex items-center gap-4">
+        <span className="text-[#888] text-sm hidden sm:block">{profile.full_name}</span>
         <form action="/auth/logout" method="POST">
           <button
             type="submit"
-            className="text-zinc-400 hover:text-white transition-colors"
+            className="text-[#555] hover:text-[#C9A84C] transition-colors"
             title="Sign out"
           >
             <LogOut className="w-4 h-4" />

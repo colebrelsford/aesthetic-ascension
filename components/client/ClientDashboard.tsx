@@ -20,6 +20,15 @@ interface Props {
   profile: Profile
 }
 
+const TAB_CLASS = `
+  text-[#666] text-xs font-medium rounded-lg px-3 py-1.5 transition-all
+  data-[state=active]:text-black data-[state=active]:font-semibold
+`
+
+const ACTIVE_STYLE = {
+  background: 'linear-gradient(135deg, #C9A84C 0%, #E8C97A 100%)',
+}
+
 export default function ClientDashboard({ profile }: Props) {
   const [plan, setPlan] = useState<Plan | null>(null)
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
@@ -43,23 +52,38 @@ export default function ClientDashboard({ profile }: Props) {
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className="min-h-screen bg-black">
       <Navbar profile={profile} />
-      <div className="max-w-4xl mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h2 className="text-xl font-semibold text-white">Hey, {profile.full_name.split(' ')[0]} 👋</h2>
-          <p className="text-zinc-400 text-sm mt-0.5">Track your progress and stay on plan.</p>
-        </div>
 
-        <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="bg-zinc-900 border border-zinc-800 flex-wrap h-auto gap-1 p-1">
-            <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400 text-xs">Overview</TabsTrigger>
-            <TabsTrigger value="progression" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400 text-xs">Workouts</TabsTrigger>
-            <TabsTrigger value="plans" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400 text-xs">My Plans</TabsTrigger>
-            <TabsTrigger value="measurements" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400 text-xs">Measurements</TabsTrigger>
-            <TabsTrigger value="checkin" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400 text-xs">Check-in</TabsTrigger>
-            <TabsTrigger value="history" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400 text-xs">History</TabsTrigger>
-            <TabsTrigger value="settings" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400 text-xs">Settings</TabsTrigger>
+      {/* Hero greeting */}
+      <div className="px-4 pt-8 pb-6 max-w-4xl mx-auto">
+        <p className="text-[#888] text-xs uppercase tracking-widest mb-1">Welcome back</p>
+        <h2 className="text-2xl font-bold text-white">{profile.full_name.split(' ')[0]}</h2>
+        <div className="mt-3 h-px w-12" style={{ background: 'linear-gradient(90deg, #C9A84C, transparent)' }} />
+      </div>
+
+      <div className="max-w-4xl mx-auto px-4 pb-10">
+        <Tabs defaultValue="overview" className="space-y-5">
+          <TabsList className="flex flex-wrap gap-1 p-1.5 rounded-xl h-auto" style={{
+            background: '#111',
+            border: '1px solid rgba(201,168,76,0.12)',
+          }}>
+            {['overview','progression','plans','measurements','checkin','history','settings'].map(tab => (
+              <TabsTrigger
+                key={tab}
+                value={tab}
+                className={TAB_CLASS}
+                style={{ ['--tab-active-bg' as string]: 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}
+              >
+                {tab === 'overview' ? 'Overview'
+                  : tab === 'progression' ? 'Workouts'
+                  : tab === 'plans' ? 'My Plans'
+                  : tab === 'measurements' ? 'Measurements'
+                  : tab === 'checkin' ? 'Check-in'
+                  : tab === 'history' ? 'History'
+                  : 'Settings'}
+              </TabsTrigger>
+            ))}
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">

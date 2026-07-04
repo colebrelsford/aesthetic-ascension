@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Scale, ClipboardList, TrendingUp } from 'lucide-react'
+import { Scale, ClipboardList } from 'lucide-react'
 
 interface FeedItem {
   id: string
-  type: 'weight' | 'checkin' | 'pr'
+  type: 'weight' | 'checkin'
   clientName: string
   description: string
   time: string
@@ -28,10 +28,7 @@ export default function ActivityFeed({ coachId }: Props) {
       since.setDate(since.getDate() - 14)
       const sinceStr = since.toISOString()
 
-      const [
-        { data: weights },
-        { data: checkins },
-      ] = await Promise.all([
+      const [{ data: weights }, { data: checkins }] = await Promise.all([
         supabase
           .from('weight_logs')
           .select('*, profiles(full_name)')
@@ -49,24 +46,24 @@ export default function ActivityFeed({ coachId }: Props) {
       const feed: FeedItem[] = []
 
       for (const w of weights || []) {
-        const profile = w.profiles as { full_name: string }
+        const p = w.profiles as { full_name: string }
         feed.push({
           id: `weight-${w.id}`,
           type: 'weight',
-          clientName: profile.full_name,
+          clientName: p.full_name,
           description: `Logged ${w.weight_lbs} lbs`,
           time: w.created_at,
         })
       }
 
       for (const c of checkins || []) {
-        const profile = c.profiles as { full_name: string }
+        const p = c.profiles as { full_name: string }
         const reads = c.checkin_reads as { coach_id: string }[]
         const isUnread = !reads.some(r => r.coach_id === coachId)
         feed.push({
           id: `checkin-${c.id}`,
           type: 'checkin',
-          clientName: profile.full_name,
+          clientName: p.full_name,
           description: `Submitted week of ${new Date(c.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} check-in`,
           time: c.created_at,
           isUnread,
@@ -91,43 +88,54 @@ export default function ActivityFeed({ coachId }: Props) {
     return 'just now'
   }
 
-  const icons = {
-    weight: <Scale className="w-3.5 h-3.5 text-zinc-400" />,
-    checkin: <ClipboardList className="w-3.5 h-3.5 text-zinc-400" />,
-    pr: <TrendingUp className="w-3.5 h-3.5 text-zinc-400" />,
-  }
-
-  if (loading) return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center text-zinc-500 text-sm">
-      Loading activity…
-    </div>
+  const emptyState = (msg: string) => (
+    <div className="rounded-2xl p-8 text-center text-[#555] text-sm" style={{
+      background: '#111',
+      border: '1px solid rgba(201,168,76,0.1)',
+    }}>{msg}</div>
   )
 
-  if (items.length === 0) return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center text-zinc-500 text-sm">
-      No recent activity in the last 14 days.
-    </div>
-  )
+  if (loading) return emptyState('Loading activity…')
+  if (items.length === 0) return emptyState('No recent activity in the last 14 days.')
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-      <div className="px-4 py-3 border-b border-zinc-800">
-        <h3 className="font-medium text-white text-sm">Recent Activity</h3>
-        <p className="text-zinc-500 text-xs mt-0.5">Last 14 days across all clients</p>
+    <div className="rounded-2xl overflow-hidden" style={{
+      background: '#111',
+      border: '1px solid rgba(201,168,76,0.15)',
+    }}>
+      <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(201,168,76,0.1)' }}>
+        <h3 className="font-semibold text-white text-sm">Recent Activity</h3>
+        <p className="text-[#555] text-xs mt-0.5">Last 14 days across all clients</p>
       </div>
-      <div className="divide-y divide-zinc-800">
-        {items.map(item => (
-          <div key={item.id} className={`flex items-start gap-3 px-4 py-3 ${item.isUnread ? 'bg-zinc-800/50' : ''}`}>
-            <div className="mt-0.5">{icons[item.type]}</div>
+      <div>
+        {items.map((item, i) => (
+          <div
+            key={item.id}
+            className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-white/[0.02]"
+            style={{
+              borderBottom: i < items.length - 1 ? '1px solid rgba(255,255,255,0.04)' : undefined,
+              background: item.isUnread ? 'rgba(201,168,76,0.04)' : undefined,
+            }}
+          >
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{
+              background: item.type === 'checkin' ? 'rgba(201,168,76,0.12)' : 'rgba(255,255,255,0.05)',
+            }}>
+              {item.type === 'checkin'
+                ? <ClipboardList className="w-3.5 h-3.5" style={{ color: '#C9A84C' }} />
+                : <Scale className="w-3.5 h-3.5 text-[#666]" />
+              }
+            </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-white">
+              <p className="text-sm text-white truncate">
                 <span className="font-medium">{item.clientName}</span>
-                {' '}<span className="text-zinc-400">{item.description}</span>
+                <span className="text-[#666]"> · {item.description}</span>
               </p>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              {item.isUnread && <span className="w-2 h-2 rounded-full bg-white" />}
-              <span className="text-zinc-500 text-xs">{timeAgo(item.time)}</span>
+            <div className="flex items-center gap-2.5 shrink-0">
+              {item.isUnread && (
+                <span className="w-2 h-2 rounded-full shrink-0" style={{ background: '#C9A84C' }} />
+              )}
+              <span className="text-[#555] text-xs">{timeAgo(item.time)}</span>
             </div>
           </div>
         ))}
