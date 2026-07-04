@@ -10,6 +10,7 @@ import WeightChart from '@/components/client/WeightChart'
 import PlanEditor from './PlanEditor'
 import PhotoComparison from './PhotoComparison'
 import CheckinList from './CheckinList'
+import ProgressionView from './ProgressionView'
 
 interface Props {
   client: Profile
@@ -63,8 +64,9 @@ export default function ClientDetail({ client, onBack }: Props) {
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList className="bg-zinc-900 border border-zinc-800">
+        <TabsList className="bg-zinc-900 border border-zinc-800 flex-wrap h-auto gap-1 p-1">
           <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Overview</TabsTrigger>
+          <TabsTrigger value="progression" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Progression</TabsTrigger>
           <TabsTrigger value="plans" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Plans</TabsTrigger>
           <TabsTrigger value="checkins" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Check-ins</TabsTrigger>
           <TabsTrigger value="photos" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Photos</TabsTrigger>
@@ -72,6 +74,10 @@ export default function ClientDetail({ client, onBack }: Props) {
 
         <TabsContent value="overview" className="space-y-4">
           <WeightChart logs={weightLogs} />
+        </TabsContent>
+
+        <TabsContent value="progression">
+          <ProgressionView clientId={client.id} plan={plan} />
         </TabsContent>
 
         <TabsContent value="plans">

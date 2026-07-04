@@ -32,13 +32,37 @@ function RatingSlider({ label, value, onChange }: { label: string; value: number
   )
 }
 
+function OpenQuestion({ label, value, onChange, placeholder }: {
+  label: string
+  value: string
+  onChange: (v: string) => void
+  placeholder: string
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-zinc-200 text-sm font-medium">{label}</Label>
+      <Textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 min-h-[90px] resize-none"
+      />
+    </div>
+  )
+}
+
 export default function WeeklyCheckinForm({ clientId }: Props) {
   const [energy, setEnergy] = useState(7)
   const [sleep, setSleep] = useState(7)
   const [stress, setStress] = useState(5)
   const [nutritionAdherence, setNutritionAdherence] = useState(8)
   const [trainingAdherence, setTrainingAdherence] = useState(8)
-  const [notes, setNotes] = useState('')
+  const [dietAdherence, setDietAdherence] = useState('')
+  const [cardioAdherence, setCardioAdherence] = useState('')
+  const [threeWins, setThreeWins] = useState('')
+  const [threeStruggles, setThreeStruggles] = useState('')
+  const [couldDoBetter, setCouldDoBetter] = useState('')
+  const [progressionNotes, setProgressionNotes] = useState('')
   const [photos, setPhotos] = useState<File[]>([])
   const [previews, setPreviews] = useState<string[]>([])
   const [loading, setLoading] = useState(false)
@@ -48,15 +72,12 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
     const files = Array.from(e.target.files || [])
     const newFiles = [...photos, ...files].slice(0, 5)
     setPhotos(newFiles)
-    const newPreviews = newFiles.map(f => URL.createObjectURL(f))
-    setPreviews(newPreviews)
+    setPreviews(newFiles.map(f => URL.createObjectURL(f)))
   }
 
   function removePhoto(index: number) {
-    const newFiles = photos.filter((_, i) => i !== index)
-    const newPreviews = previews.filter((_, i) => i !== index)
-    setPhotos(newFiles)
-    setPreviews(newPreviews)
+    setPhotos(photos.filter((_, i) => i !== index))
+    setPreviews(previews.filter((_, i) => i !== index))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -77,7 +98,12 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
         stress_level: stress,
         adherence_nutrition: nutritionAdherence,
         adherence_training: trainingAdherence,
-        notes,
+        diet_adherence: dietAdherence,
+        cardio_adherence: cardioAdherence,
+        three_wins: threeWins,
+        three_struggles: threeStruggles,
+        could_do_better: couldDoBetter,
+        progression_notes: progressionNotes,
       }, { onConflict: 'client_id,week_start' })
       .select()
       .single()
@@ -107,7 +133,12 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
     }
 
     toast.success('Check-in submitted!')
-    setNotes('')
+    setDietAdherence('')
+    setCardioAdherence('')
+    setThreeWins('')
+    setThreeStruggles('')
+    setCouldDoBetter('')
+    setProgressionNotes('')
     setPhotos([])
     setPreviews([])
     setLoading(false)
@@ -115,29 +146,63 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
 
   return (
     <form onSubmit={handleSubmit} className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 space-y-6">
-      <div>
-        <h3 className="font-medium text-white mb-4">Weekly Check-in</h3>
-        <div className="space-y-4">
-          <RatingSlider label="Energy Level" value={energy} onChange={setEnergy} />
-          <RatingSlider label="Sleep Quality" value={sleep} onChange={setSleep} />
-          <RatingSlider label="Stress Level" value={stress} onChange={setStress} />
-          <RatingSlider label="Nutrition Adherence" value={nutritionAdherence} onChange={setNutritionAdherence} />
-          <RatingSlider label="Training Adherence" value={trainingAdherence} onChange={setTrainingAdherence} />
-        </div>
+      <h3 className="font-medium text-white">Weekly Check-in</h3>
+
+      {/* Ratings */}
+      <div className="space-y-4">
+        <p className="text-zinc-400 text-xs uppercase tracking-wider">Rate your week</p>
+        <RatingSlider label="Energy Level" value={energy} onChange={setEnergy} />
+        <RatingSlider label="Sleep Quality" value={sleep} onChange={setSleep} />
+        <RatingSlider label="Stress Level" value={stress} onChange={setStress} />
+        <RatingSlider label="Nutrition Adherence" value={nutritionAdherence} onChange={setNutritionAdherence} />
+        <RatingSlider label="Training Adherence" value={trainingAdherence} onChange={setTrainingAdherence} />
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-zinc-300">Notes for your coach</Label>
-        <Textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          placeholder="How did the week go? Any issues, wins, or questions?"
-          className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 min-h-[100px]"
+      {/* Open-ended questions */}
+      <div className="space-y-4">
+        <p className="text-zinc-400 text-xs uppercase tracking-wider">Weekly questions</p>
+
+        <OpenQuestion
+          label="Did you stick to the diet? If not, explain in detail."
+          value={dietAdherence}
+          onChange={setDietAdherence}
+          placeholder="Be honest and specific..."
+        />
+        <OpenQuestion
+          label="How was cardio adherence this week? Be specific."
+          value={cardioAdherence}
+          onChange={setCardioAdherence}
+          placeholder="Days completed, duration, intensity..."
+        />
+        <OpenQuestion
+          label="What are 3 wins you had this week?"
+          value={threeWins}
+          onChange={setThreeWins}
+          placeholder="1. 2. 3."
+        />
+        <OpenQuestion
+          label="What are 3 struggles you had this week?"
+          value={threeStruggles}
+          onChange={setThreeStruggles}
+          placeholder="1. 2. 3."
+        />
+        <OpenQuestion
+          label="What do you feel you could have done better this week?"
+          value={couldDoBetter}
+          onChange={setCouldDoBetter}
+          placeholder="Be honest with yourself..."
+        />
+        <OpenQuestion
+          label="How was progression this week?"
+          value={progressionNotes}
+          onChange={setProgressionNotes}
+          placeholder="Strength gains, PRs, how weights felt..."
         />
       </div>
 
+      {/* Photos */}
       <div className="space-y-3">
-        <Label className="text-zinc-300">Progress Photos (up to 5)</Label>
+        <p className="text-zinc-400 text-xs uppercase tracking-wider">Progress photos (up to 5)</p>
         {previews.length > 0 && (
           <div className="flex gap-2 flex-wrap">
             {previews.map((src, i) => (

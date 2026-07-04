@@ -8,6 +8,7 @@ import WeightLogger from './WeightLogger'
 import WeightChart from './WeightChart'
 import PlanViewer from './PlanViewer'
 import WeeklyCheckinForm from './WeeklyCheckinForm'
+import WorkoutTracker from './WorkoutTracker'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Props {
@@ -45,15 +46,20 @@ export default function ClientDashboard({ profile }: Props) {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="bg-zinc-900 border border-zinc-800">
+          <TabsList className="bg-zinc-900 border border-zinc-800 flex-wrap h-auto gap-1 p-1">
             <TabsTrigger value="overview" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Overview</TabsTrigger>
+            <TabsTrigger value="progression" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Progression</TabsTrigger>
             <TabsTrigger value="plans" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">My Plans</TabsTrigger>
-            <TabsTrigger value="checkin" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Weekly Check-in</TabsTrigger>
+            <TabsTrigger value="checkin" className="data-[state=active]:bg-white data-[state=active]:text-black text-zinc-400">Check-in</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
             <WeightLogger clientId={profile.id} onLogged={onWeightLogged} />
             <WeightChart logs={weightLogs} />
+          </TabsContent>
+
+          <TabsContent value="progression">
+            <WorkoutTracker clientId={profile.id} plan={plan} />
           </TabsContent>
 
           <TabsContent value="plans">

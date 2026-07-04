@@ -15,11 +15,18 @@ function Bar({ value, label }: { value: number; label: string }) {
         <span className="text-white font-medium">{value}/10</span>
       </div>
       <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-white rounded-full transition-all"
-          style={{ width: `${value * 10}%` }}
-        />
+        <div className="h-full bg-white rounded-full" style={{ width: `${value * 10}%` }} />
       </div>
+    </div>
+  )
+}
+
+function QA({ question, answer }: { question: string; answer: string | null }) {
+  if (!answer) return null
+  return (
+    <div className="space-y-1">
+      <p className="text-zinc-400 text-xs font-medium">{question}</p>
+      <p className="text-zinc-200 text-sm leading-relaxed bg-zinc-800 rounded-lg px-3 py-2">{answer}</p>
     </div>
   )
 }
@@ -34,17 +41,17 @@ export default function CheckinList({ checkins }: Props) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {checkins.map(c => (
-        <div key={c.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
+        <div key={c.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 space-y-5">
+          <div className="flex items-center gap-2">
             <ClipboardList className="w-4 h-4 text-zinc-400" />
             <h3 className="font-medium text-white text-sm">
               Week of {new Date(c.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
             </h3>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Bar value={c.energy_level} label="Energy" />
             <Bar value={c.sleep_quality} label="Sleep Quality" />
             <Bar value={c.stress_level} label="Stress" />
@@ -52,11 +59,14 @@ export default function CheckinList({ checkins }: Props) {
             <Bar value={c.adherence_training} label="Training Adherence" />
           </div>
 
-          {c.notes && (
-            <div className="bg-zinc-800 rounded-lg p-3">
-              <p className="text-zinc-300 text-sm leading-relaxed">{c.notes}</p>
-            </div>
-          )}
+          <div className="space-y-3">
+            <QA question="Did you stick to the diet?" answer={c.diet_adherence} />
+            <QA question="Cardio adherence this week?" answer={c.cardio_adherence} />
+            <QA question="3 wins this week" answer={c.three_wins} />
+            <QA question="3 struggles this week" answer={c.three_struggles} />
+            <QA question="What could you have done better?" answer={c.could_do_better} />
+            <QA question="Progression this week" answer={c.progression_notes} />
+          </div>
         </div>
       ))}
     </div>

@@ -36,6 +36,31 @@ export interface WeeklyCheckin {
   adherence_nutrition: number
   adherence_training: number
   notes: string | null
+  diet_adherence: string | null
+  cardio_adherence: string | null
+  three_wins: string | null
+  three_struggles: string | null
+  could_do_better: string | null
+  progression_notes: string | null
+  created_at: string
+}
+
+export interface WorkoutSession {
+  id: string
+  client_id: string
+  session_date: string
+  notes: string | null
+  created_at: string
+}
+
+export interface SetLog {
+  id: string
+  session_id: string
+  client_id: string
+  exercise_name: string
+  set_number: number
+  weight_lbs: number | null
+  reps: number | null
   created_at: string
 }
 
