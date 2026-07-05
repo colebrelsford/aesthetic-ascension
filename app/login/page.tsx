@@ -20,20 +20,16 @@ export default function LoginPage() {
 
     let email = identifier.trim()
 
-    // If they typed a display name (no @), look up their email
+    // If they typed a display name (no @), look up their email via a security definer function
     if (!email.includes('@')) {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('email')
-        .ilike('full_name', email)
-        .single()
+      const { data, error } = await supabase.rpc('get_email_by_display_name', { display_name: email })
 
-      if (!profile?.email) {
+      if (error || !data) {
         toast.error('No account found with that name')
         setLoading(false)
         return
       }
-      email = profile.email
+      email = data
     }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password })
