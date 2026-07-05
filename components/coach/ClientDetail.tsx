@@ -12,6 +12,7 @@ import PhotoComparison from './PhotoComparison'
 import CheckinList from './CheckinList'
 import ProgressionView from './ProgressionView'
 import CoachNotes from './CoachNotes'
+import ClientMeasurements from './ClientMeasurements'
 
 interface Props {
   client: Profile
@@ -97,6 +98,7 @@ export default function ClientDetail({ client, coachId, onBack }: Props) {
             { value: 'plans', label: 'Plans' },
             { value: 'checkins', label: 'Check-ins' },
             { value: 'photos', label: 'Photos' },
+            { value: 'measurements', label: 'Measurements' },
             { value: 'notes', label: 'Notes' },
           ].map(t => (
             <TabsTrigger key={t.value} value={t.value} className={TAB}>
@@ -119,6 +121,9 @@ export default function ClientDetail({ client, coachId, onBack }: Props) {
         </TabsContent>
         <TabsContent value="photos">
           <PhotoComparison photos={photos} />
+        </TabsContent>
+        <TabsContent value="measurements">
+          <ClientMeasurements clientId={client.id} />
         </TabsContent>
         <TabsContent value="notes">
           <CoachNotes clientId={client.id} />
