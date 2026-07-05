@@ -137,6 +137,14 @@ export default function CheckinHistory({ clientId }: Props) {
                   <QA question="Progression" answer={c.progression_notes} />
                 </div>
 
+                {/* Coach feedback */}
+                {c.coach_feedback && (
+                  <div className="rounded-xl p-4 space-y-1.5" style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.2)' }}>
+                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: '#C9A84C' }}>Coach Feedback</p>
+                    <p className="text-[#ccc] text-sm leading-relaxed">{c.coach_feedback}</p>
+                  </div>
+                )}
+
                 {/* Photos */}
                 {c.photos.length > 0 && (
                   <div>

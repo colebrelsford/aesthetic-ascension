@@ -19,12 +19,13 @@ interface Props {
   client: Profile
   coachId: string
   onBack: () => void
+  onClientUpdate?: (updated: Profile) => void
 }
 
 const TAB = `text-[#666] text-xs font-medium rounded-lg px-3 py-1.5 transition-all
   data-[state=active]:text-black data-[state=active]:font-semibold`
 
-export default function ClientDetail({ client, coachId, onBack }: Props) {
+export default function ClientDetail({ client, coachId, onBack, onClientUpdate }: Props) {
   const [plan, setPlan] = useState<Plan | null>(null)
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [checkins, setCheckins] = useState<WeeklyCheckin[]>([])
@@ -154,7 +155,7 @@ export default function ClientDetail({ client, coachId, onBack }: Props) {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <WeightChart logs={weightLogs} />
+          <WeightChart logs={weightLogs} clientId={client.id} goalWeight={client.goal_weight_lbs ?? null} onGoalSaved={() => {}} />
         </TabsContent>
         <TabsContent value="progression">
           <ProgressionView clientId={client.id} plan={plan} />

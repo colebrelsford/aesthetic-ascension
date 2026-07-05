@@ -8,6 +8,8 @@ export interface Profile {
   avatar_url: string | null
   checkin_deadline_day: number
   checkin_reminder_enabled: boolean
+  goal_weight_lbs: number | null
+  flagged: boolean
   created_at: string
 }
 
@@ -49,6 +51,7 @@ export interface WeeklyCheckin {
   three_struggles: string | null
   could_do_better: string | null
   progression_notes: string | null
+  coach_feedback: string | null
   created_at: string
 }
 
