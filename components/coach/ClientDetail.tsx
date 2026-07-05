@@ -29,7 +29,19 @@ export default function ClientDetail({ client, coachId, onBack }: Props) {
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [checkins, setCheckins] = useState<WeeklyCheckin[]>([])
   const [photos, setPhotos] = useState<ProgressPhoto[]>([])
+  const [deadlineDay, setDeadlineDay] = useState<number>(client.checkin_deadline_day ?? -1)
+  const [deadlineSaving, setDeadlineSaving] = useState(false)
   const supabase = createClient()
+
+  const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+
+  async function saveDeadline(day: number) {
+    setDeadlineDay(day)
+    setDeadlineSaving(true)
+    await supabase.from('profiles').update({ checkin_deadline_day: day === -1 ? null : day }).eq('id', client.id)
+    setDeadlineSaving(false)
+    toast.success(day === -1 ? 'Check-in reminder off' : `Reminder set for ${DAYS[day]}s`)
+  }
 
   useEffect(() => {
     async function load() {
@@ -101,15 +113,24 @@ export default function ClientDetail({ client, coachId, onBack }: Props) {
             <p className="text-[#555] text-xs">{client.email}</p>
           </div>
         </div>
-        {/* Send reminder button */}
-        <button
-          onClick={sendReminder}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all shrink-0"
-          style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)', color: '#C9A84C' }}
-        >
-          <Bell className="w-3.5 h-3.5" />
-          Send Reminder
-        </button>
+        {/* Check-in deadline selector */}
+        <div className="flex items-center gap-2 shrink-0">
+          <Bell className="w-3.5 h-3.5 shrink-0" style={{ color: '#C9A84C' }} />
+          <select
+            value={deadlineDay}
+            onChange={e => saveDeadline(Number(e.target.value))}
+            className="text-xs rounded-xl px-3 py-2 font-medium"
+            style={{
+              background: 'rgba(201,168,76,0.1)',
+              border: '1px solid rgba(201,168,76,0.25)',
+              color: '#C9A84C',
+            }}
+          >
+            <option value={-1}>No check-in day</option>
+            {DAYS.map((d, i) => <option key={d} value={i}>{d}s</option>)}
+          </select>
+          {deadlineSaving && <span className="text-[#555] text-xs">Saving…</span>}
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-5">
