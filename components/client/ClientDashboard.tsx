@@ -15,6 +15,8 @@ import ClientSettings from './PasswordChange'
 import MacroTargets from './MacroTargets'
 import ProfilePhotoUpload from './ProfilePhotoUpload'
 import HomeScreenPrompt from './HomeScreenPrompt'
+import CheckinStreak from './CheckinStreak'
+import OnboardingChecklist from './OnboardingChecklist'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Props {
@@ -29,16 +31,24 @@ export default function ClientDashboard({ profile }: Props) {
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url)
   const [goalWeight, setGoalWeight] = useState<number | null>(profile.goal_weight_lbs)
+  const [hasCheckin, setHasCheckin] = useState(false)
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission>('default')
   const supabase = createClient()
 
   useEffect(() => {
+    if (typeof Notification !== 'undefined') setNotifPermission(Notification.permission)
+  }, [])
+
+  useEffect(() => {
     async function load() {
-      const [{ data: planData }, { data: logs }] = await Promise.all([
+      const [{ data: planData }, { data: logs }, { data: checkins }] = await Promise.all([
         supabase.from('plans').select('*').eq('client_id', profile.id).single(),
         supabase.from('weight_logs').select('*').eq('client_id', profile.id).order('date', { ascending: true }),
+        supabase.from('weekly_checkins').select('id').eq('client_id', profile.id).limit(1),
       ])
       if (planData) setPlan(planData)
       if (logs) setWeightLogs(logs)
+      if (checkins && checkins.length > 0) setHasCheckin(true)
     }
     load()
   }, [profile.id])
@@ -88,6 +98,13 @@ export default function ClientDashboard({ profile }: Props) {
           </TabsList>
 
           <TabsContent value="overview" className="space-y-4">
+            <OnboardingChecklist
+              hasWeight={weightLogs.length > 0}
+              hasCheckin={hasCheckin}
+              hasPhoto={!!profile.avatar_url}
+              notificationsEnabled={notifPermission === 'granted'}
+            />
+            <CheckinStreak clientId={profile.id} />
             <MacroTargets plan={plan} />
             <WeightLogger clientId={profile.id} onLogged={onWeightLogged} />
             <WeightChart

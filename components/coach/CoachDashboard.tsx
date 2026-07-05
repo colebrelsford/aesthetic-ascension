@@ -7,6 +7,7 @@ import Navbar from '@/components/shared/Navbar'
 import ClientCard from './ClientCard'
 import ClientDetail from './ClientDetail'
 import ActivityFeed from './ActivityFeed'
+import CoachStats from './CoachStats'
 import { useCheckinNotifications } from '@/hooks/useCheckinNotifications'
 import { Users, Bell, BellOff, Search, Flag } from 'lucide-react'
 
@@ -109,6 +110,7 @@ export default function CoachDashboard({ profile }: Props) {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 pb-10 space-y-6 mt-4">
+        <CoachStats totalClients={clients.length} />
         <ActivityFeed coachId={profile.id} />
 
         <div>

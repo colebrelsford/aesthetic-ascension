@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { WeightLog } from '@/lib/types'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
@@ -14,8 +13,12 @@ interface Props {
   onLogged: (log: WeightLog) => void
 }
 
+const cardStyle = { background: '#111', border: '1px solid rgba(201,168,76,0.15)' }
+const inputStyle = { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(201,168,76,0.2)' }
+
 export default function WeightLogger({ clientId, onLogged }: Props) {
   const [weight, setWeight] = useState('')
+  const [notes, setNotes] = useState('')
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
@@ -27,57 +30,76 @@ export default function WeightLogger({ clientId, onLogged }: Props) {
 
     const { data, error } = await supabase
       .from('weight_logs')
-      .upsert({ client_id: clientId, date, weight_lbs: parseFloat(weight) }, { onConflict: 'client_id,date' })
+      .upsert(
+        { client_id: clientId, date, weight_lbs: parseFloat(weight), notes: notes.trim() || null },
+        { onConflict: 'client_id,date' }
+      )
       .select()
       .single()
 
     setLoading(false)
-
-    if (error) {
-      toast.error('Failed to log weight')
-      return
-    }
-
+    if (error) { toast.error('Failed to log weight'); return }
     toast.success('Weight logged!')
     onLogged(data)
     setWeight('')
+    setNotes('')
   }
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+    <div className="rounded-2xl p-5" style={cardStyle}>
       <div className="flex items-center gap-2 mb-4">
-        <Scale className="w-4 h-4 text-zinc-400" />
-        <h3 className="font-medium text-white">Log Today&apos;s Weight</h3>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.12)' }}>
+          <Scale className="w-3.5 h-3.5" style={{ color: '#C9A84C' }} />
+        </div>
+        <h3 className="font-semibold text-white text-sm">Log Weight</h3>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex flex-wrap gap-3 items-end">
-        <div className="space-y-1">
-          <Label className="text-zinc-400 text-xs">Date</Label>
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div className="space-y-1.5">
+            <Label className="text-[#666] text-xs uppercase tracking-wider">Date</Label>
+            <Input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="text-white w-40 rounded-xl"
+              style={inputStyle}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[#666] text-xs uppercase tracking-wider">Weight (lbs)</Label>
+            <Input
+              type="number"
+              step="0.1"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              placeholder="185.0"
+              className="text-white w-32 rounded-xl"
+              style={inputStyle}
+            />
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-[#666] text-xs uppercase tracking-wider">Notes <span className="normal-case text-[#444]">(optional — e.g. "morning weight", "bloated")</span></Label>
           <Input
-            type="date"
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="bg-zinc-800 border-zinc-700 text-white w-40"
+            type="text"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Any context for today's weigh-in…"
+            className="text-white rounded-xl"
+            style={inputStyle}
           />
         </div>
-        <div className="space-y-1">
-          <Label className="text-zinc-400 text-xs">Weight (lbs)</Label>
-          <Input
-            type="number"
-            step="0.1"
-            value={weight}
-            onChange={(e) => setWeight(e.target.value)}
-            placeholder="185.0"
-            className="bg-zinc-800 border-zinc-700 text-white w-32"
-          />
-        </div>
-        <Button
+
+        <button
           type="submit"
           disabled={loading || !weight}
-          className="bg-white text-black hover:bg-zinc-200"
+          className="px-5 py-2 rounded-xl text-sm font-semibold text-black disabled:opacity-40"
+          style={{ background: 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}
         >
-          {loading ? 'Saving…' : 'Log'}
-        </Button>
+          {loading ? 'Saving…' : 'Log Weight'}
+        </button>
       </form>
     </div>
   )
