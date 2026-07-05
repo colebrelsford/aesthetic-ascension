@@ -5,7 +5,8 @@ import { Profile, Plan, WeightLog, WeeklyCheckin, ProgressPhoto } from '@/lib/ty
 import { createClient } from '@/lib/supabase/client'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Bell } from 'lucide-react'
+import { toast } from 'sonner'
 import WeightChart from '@/components/client/WeightChart'
 import PlanEditor from './PlanEditor'
 import PhotoComparison from './PhotoComparison'
@@ -59,10 +60,25 @@ export default function ClientDetail({ client, coachId, onBack }: Props) {
 
   const initials = client.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
 
+  async function sendReminder() {
+    const res = await fetch('/api/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        clientId: client.id,
+        title: 'Check-in Reminder',
+        body: `Hey ${client.full_name.split(' ')[0]}! Your coach is waiting — submit your weekly check-in now.`,
+      }),
+    })
+    const data = await res.json()
+    if (data.sent > 0) toast.success('Reminder sent!')
+    else toast.error('Client hasn't enabled push notifications yet')
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-6">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-8">
+      <div className="flex items-center justify-between gap-4 mb-8">
         <button
           onClick={onBack}
           className="w-9 h-9 rounded-xl flex items-center justify-center transition-colors text-[#888] hover:text-[#C9A84C]"
@@ -85,6 +101,15 @@ export default function ClientDetail({ client, coachId, onBack }: Props) {
             <p className="text-[#555] text-xs">{client.email}</p>
           </div>
         </div>
+        {/* Send reminder button */}
+        <button
+          onClick={sendReminder}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all shrink-0"
+          style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)', color: '#C9A84C' }}
+        >
+          <Bell className="w-3.5 h-3.5" />
+          Send Reminder
+        </button>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-5">

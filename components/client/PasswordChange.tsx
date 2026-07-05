@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { Lock, User, Bell } from 'lucide-react'
+import { Lock, User, Bell, BellRing } from 'lucide-react'
+import { usePushSubscription } from '@/hooks/usePushSubscription'
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 
@@ -25,6 +26,7 @@ export default function ClientSettings({ profile }: Props) {
   const [deadlineDay, setDeadlineDay] = useState(profile.checkin_deadline_day ?? 0)
   const [reminderSaving, setReminderSaving] = useState(false)
   const supabase = createClient()
+  const push = usePushSubscription(profile.id)
 
   async function handleNameSave(e: React.FormEvent) {
     e.preventDefault()
@@ -116,6 +118,30 @@ export default function ClientSettings({ profile }: Props) {
           </Button>
         </div>
       </div>
+
+      {/* Push Notifications */}
+      {push.supported && (
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <BellRing className="w-4 h-4 text-zinc-400" />
+            <h3 className="font-medium text-white">Check-in Reminders</h3>
+          </div>
+          <p className="text-zinc-500 text-sm mb-4">
+            {push.subscribed
+              ? "You'll receive push notifications reminding you to submit your weekly check-in."
+              : 'Enable push notifications so your coach can send you check-in reminders directly to this device.'}
+          </p>
+          <Button
+            onClick={push.subscribed ? push.unsubscribe : push.subscribe}
+            disabled={push.loading}
+            className={push.subscribed
+              ? 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+              : 'bg-white text-black hover:bg-zinc-200 font-medium'}
+          >
+            {push.loading ? 'Loading…' : push.subscribed ? 'Disable Notifications' : 'Enable Push Notifications'}
+          </Button>
+        </div>
+      )}
 
       {/* Password */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
