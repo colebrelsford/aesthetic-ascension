@@ -84,7 +84,7 @@ export default function ClientDetail({ client, coachId, onBack }: Props) {
     })
     const data = await res.json()
     if (data.sent > 0) toast.success('Reminder sent!')
-    else toast.error('Client hasn't enabled push notifications yet')
+    else toast.error("Client hasn't enabled push notifications yet")
   }
 
   return (
