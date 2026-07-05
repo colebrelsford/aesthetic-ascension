@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Profile, WeeklyCheckin, WeightLog } from '@/lib/types'
-import { FileText, ChevronDown, ChevronUp, TrendingDown, TrendingUp, Minus } from 'lucide-react'
+import { FileText, ChevronDown, ChevronUp, TrendingDown, TrendingUp, Minus, RefreshCw } from 'lucide-react'
 
 interface Props {
   client: Profile
@@ -18,15 +18,15 @@ interface BriefData {
   totalSetsThisWeek: number
 }
 
-function getWeekRange(weeksAgo: number) {
+function getRollingRange(daysAgo: number) {
   const now = new Date()
   const end = new Date(now)
-  end.setDate(now.getDate() - weeksAgo * 7)
+  end.setDate(now.getDate() - daysAgo)
   const start = new Date(end)
   start.setDate(end.getDate() - 7)
   return {
     start: start.toISOString().split('T')[0],
-    end: end.toISOString().split('T')[0],
+    end: now.toISOString().split('T')[0],
   }
 }
 
@@ -48,13 +48,14 @@ export default function WeeklyBrief({ client }: Props) {
   const [loading, setLoading] = useState(false)
   const supabase = createClient()
 
-  async function load() {
-    if (data) { setOpen(!open); return }
+  async function load(reset = false) {
+    if (data && !reset) { setOpen(!open); return }
     setLoading(true)
     setOpen(true)
+    setData(null)
 
-    const thisWeek = getWeekRange(0)
-    const lastWeek = getWeekRange(1)
+    const thisWeek = getRollingRange(0)
+    const lastWeek = getRollingRange(7)
 
     const [
       { data: wThis },
@@ -152,13 +153,24 @@ export default function WeeklyBrief({ client }: Props) {
 
   return (
     <div className="rounded-xl overflow-hidden" style={{ background: '#111', border: '1px solid rgba(201,168,76,0.2)' }}>
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center justify-between px-4 py-3">
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between px-4 py-3">
+        <button onClick={() => setOpen(!open)} className="flex items-center gap-2">
           <FileText className="w-4 h-4" style={{ color: '#C9A84C' }} />
           <span className="text-sm font-semibold text-white">Weekly Brief</span>
+        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => load(true)}
+            title="Regenerate brief"
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1.5 rounded-lg transition-all text-[#666] hover:text-[#C9A84C]"
+            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            Refresh
+          </button>
+          {open ? <ChevronUp className="w-4 h-4 text-[#555]" /> : <ChevronDown className="w-4 h-4 text-[#555]" />}
         </div>
-        {open ? <ChevronUp className="w-4 h-4 text-[#555]" /> : <ChevronDown className="w-4 h-4 text-[#555]" />}
-      </button>
+      </div>
 
       {open && (
         <div className="px-4 pb-4 space-y-4" style={{ borderTop: '1px solid rgba(201,168,76,0.1)' }}>
