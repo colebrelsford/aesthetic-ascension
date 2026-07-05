@@ -4,12 +4,11 @@ import { useState } from 'react'
 import { Plan } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import RichTextEditor from '@/components/shared/RichTextEditor'
 import { toast } from 'sonner'
-import { Save, Utensils, Dumbbell, Pill, Flame } from 'lucide-react'
+import { Save, Utensils, Dumbbell, Pill, Flame, Timer } from 'lucide-react'
 
 interface Props {
   clientId: string
@@ -25,6 +24,10 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
   const [protein, setProtein] = useState(plan?.protein_g?.toString() || '')
   const [carbs, setCarbs] = useState(plan?.carbs_g?.toString() || '')
   const [fat, setFat] = useState(plan?.fat_g?.toString() || '')
+  const [cardioType, setCardioType] = useState(plan?.cardio_type || '')
+  const [cardioDuration, setCardioDuration] = useState(plan?.cardio_duration_min?.toString() || '')
+  const [cardioSessions, setCardioSessions] = useState(plan?.cardio_sessions_per_week?.toString() || '')
+  const [cardioNotes, setCardioNotes] = useState(plan?.cardio_notes || '')
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
@@ -42,6 +45,10 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
         protein_g: protein ? parseInt(protein) : null,
         carbs_g: carbs ? parseInt(carbs) : null,
         fat_g: fat ? parseInt(fat) : null,
+        cardio_type: cardioType || null,
+        cardio_duration_min: cardioDuration ? parseInt(cardioDuration) : null,
+        cardio_sessions_per_week: cardioSessions ? parseInt(cardioSessions) : null,
+        cardio_notes: cardioNotes || null,
         updated_at: new Date().toISOString(),
       })
       .select()
@@ -53,10 +60,8 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
     onSaved(data)
   }
 
-  const cardStyle = {
-    background: '#111',
-    border: '1px solid rgba(201,168,76,0.15)',
-  }
+  const cardStyle = { background: '#111', border: '1px solid rgba(201,168,76,0.15)' }
+  const inputStyle = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,168,76,0.15)' }
 
   return (
     <div className="space-y-4">
@@ -83,10 +88,64 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
                 onChange={(e) => m.onChange(e.target.value)}
                 placeholder="0"
                 className="text-white h-9 text-sm rounded-xl"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,168,76,0.15)' }}
+                style={inputStyle}
               />
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Cardio targets */}
+      <div className="rounded-2xl p-5" style={cardStyle}>
+        <div className="flex items-center gap-2 mb-4">
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.12)' }}>
+            <Timer className="w-3.5 h-3.5" style={{ color: '#C9A84C' }} />
+          </div>
+          <h3 className="font-semibold text-white text-sm">Cardio Targets</h3>
+        </div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+          <div className="space-y-1.5">
+            <Label className="text-[#666] text-xs uppercase tracking-wider">Type</Label>
+            <Input
+              value={cardioType}
+              onChange={e => setCardioType(e.target.value)}
+              placeholder="e.g. Incline walk"
+              className="text-white h-9 text-sm rounded-xl"
+              style={inputStyle}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[#666] text-xs uppercase tracking-wider">Duration (min)</Label>
+            <Input
+              type="number"
+              value={cardioDuration}
+              onChange={e => setCardioDuration(e.target.value)}
+              placeholder="0"
+              className="text-white h-9 text-sm rounded-xl"
+              style={inputStyle}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-[#666] text-xs uppercase tracking-wider">Sessions / week</Label>
+            <Input
+              type="number"
+              value={cardioSessions}
+              onChange={e => setCardioSessions(e.target.value)}
+              placeholder="0"
+              className="text-white h-9 text-sm rounded-xl"
+              style={inputStyle}
+            />
+          </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[#666] text-xs uppercase tracking-wider">Notes</Label>
+          <Input
+            value={cardioNotes}
+            onChange={e => setCardioNotes(e.target.value)}
+            placeholder="e.g. Fasted, post-workout, incline 10 speed 3.0"
+            className="text-white h-9 text-sm rounded-xl"
+            style={inputStyle}
+          />
         </div>
       </div>
 
