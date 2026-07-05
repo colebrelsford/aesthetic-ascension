@@ -14,6 +14,7 @@ import CheckinList from './CheckinList'
 import ProgressionView from './ProgressionView'
 import CoachNotes from './CoachNotes'
 import ClientMeasurements from './ClientMeasurements'
+import WeeklyBrief from './WeeklyBrief'
 
 interface Props {
   client: Profile
@@ -155,6 +156,7 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <WeeklyBrief client={client} />
           <WeightChart logs={weightLogs} clientId={client.id} goalWeight={client.goal_weight_lbs ?? null} onGoalSaved={() => {}} />
         </TabsContent>
         <TabsContent value="progression">

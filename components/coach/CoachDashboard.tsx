@@ -8,8 +8,10 @@ import ClientCard from './ClientCard'
 import ClientDetail from './ClientDetail'
 import ActivityFeed from './ActivityFeed'
 import CoachStats from './CoachStats'
+import CoachTemplates from './CoachTemplates'
 import { useCheckinNotifications } from '@/hooks/useCheckinNotifications'
-import { Users, Bell, BellOff, Search, Flag } from 'lucide-react'
+import { Users, Bell, BellOff, Search, Flag, Dumbbell } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
 interface Props {
   profile: Profile
@@ -111,8 +113,29 @@ export default function CoachDashboard({ profile }: Props) {
 
       <div className="max-w-5xl mx-auto px-4 pb-10 space-y-6 mt-4">
         <CoachStats totalClients={clients.length} />
-        <ActivityFeed coachId={profile.id} />
 
+        <Tabs defaultValue="clients" className="space-y-5">
+          <TabsList className="flex gap-1 p-1.5 rounded-xl h-auto w-fit" style={{ background: '#111', border: '1px solid rgba(201,168,76,0.12)' }}>
+            {[
+              { value: 'clients', label: 'Clients', icon: <Users className="w-3.5 h-3.5" /> },
+              { value: 'activity', label: 'Activity', icon: null },
+              { value: 'templates', label: 'Templates', icon: <Dumbbell className="w-3.5 h-3.5" /> },
+            ].map(t => (
+              <TabsTrigger key={t.value} value={t.value} className="flex items-center gap-1.5 text-[#666] text-xs font-medium rounded-lg px-3 py-1.5 transition-all data-[state=active]:text-black data-[state=active]:font-semibold">
+                {t.icon}{t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          <TabsContent value="activity">
+            <ActivityFeed coachId={profile.id} />
+          </TabsContent>
+
+          <TabsContent value="templates">
+            <CoachTemplates coachId={profile.id} clients={clients} />
+          </TabsContent>
+
+          <TabsContent value="clients">
         <div>
           <div className="flex items-center gap-3 mb-4 flex-wrap">
             <div className="flex items-center gap-2">
@@ -182,6 +205,8 @@ export default function CoachDashboard({ profile }: Props) {
             </div>
           )}
         </div>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   )
