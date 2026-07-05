@@ -85,7 +85,7 @@ export default function WeeklyBrief({ client }: Props) {
   if (!data && !loading) {
     return (
       <button
-        onClick={load}
+        onClick={() => load()}
         className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all w-full"
         style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)', color: '#C9A84C' }}
       >
