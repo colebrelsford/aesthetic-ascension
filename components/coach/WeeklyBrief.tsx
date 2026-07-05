@@ -37,9 +37,9 @@ function avg(logs: WeightLog[]) {
 
 function ratingLabel(val: number | null) {
   if (val === null) return '—'
-  if (val >= 4) return `${val}/5 ✓`
-  if (val >= 3) return `${val}/5`
-  return `${val}/5 ⚠`
+  if (val >= 8) return `${val}/10 ✓`
+  if (val >= 6) return `${val}/10`
+  return `${val}/10 ⚠`
 }
 
 export default function WeeklyBrief({ client }: Props) {
@@ -117,16 +117,16 @@ export default function WeeklyBrief({ client }: Props) {
   if (!c) {
     insights.push({ text: 'No check-in submitted this week.', type: 'warn' })
   } else {
-    if (c.energy_level !== null && c.energy_level <= 2) insights.push({ text: `Energy is low (${c.energy_level}/5) — may need deload or recovery focus.`, type: 'warn' })
-    if (c.sleep_quality !== null && c.sleep_quality <= 2) insights.push({ text: `Sleep quality is poor (${c.sleep_quality}/5) — worth addressing.`, type: 'warn' })
-    if (c.stress_level !== null && c.stress_level >= 4) insights.push({ text: `High stress reported (${c.stress_level}/5) — consider adjusting training intensity.`, type: 'warn' })
-    if (c.adherence_nutrition !== null && c.adherence_nutrition >= 4) insights.push({ text: `Strong nutrition adherence this week (${c.adherence_nutrition}/5).`, type: 'good' })
-    if (c.adherence_nutrition !== null && c.adherence_nutrition <= 2) insights.push({ text: `Nutrition adherence was low (${c.adherence_nutrition}/5) — revisit meal plan.`, type: 'warn' })
-    if (c.adherence_training !== null && c.adherence_training >= 4) insights.push({ text: `Consistent with training (${c.adherence_training}/5).`, type: 'good' })
+    if (c.energy_level !== null && c.energy_level <= 4) insights.push({ text: `Energy is low (${c.energy_level}/10) — may need deload or recovery focus.`, type: 'warn' })
+    if (c.sleep_quality !== null && c.sleep_quality <= 4) insights.push({ text: `Sleep quality is poor (${c.sleep_quality}/10) — worth addressing.`, type: 'warn' })
+    if (c.stress_level !== null && c.stress_level >= 7) insights.push({ text: `High stress reported (${c.stress_level}/10) — consider adjusting training intensity.`, type: 'warn' })
+    if (c.adherence_nutrition !== null && c.adherence_nutrition >= 8) insights.push({ text: `Strong nutrition adherence this week (${c.adherence_nutrition}/10).`, type: 'good' })
+    if (c.adherence_nutrition !== null && c.adherence_nutrition <= 4) insights.push({ text: `Nutrition adherence was low (${c.adherence_nutrition}/10) — revisit meal plan.`, type: 'warn' })
+    if (c.adherence_training !== null && c.adherence_training >= 8) insights.push({ text: `Consistent with training (${c.adherence_training}/10).`, type: 'good' })
     if (prev && c.energy_level !== null && prev.energy_level !== null) {
       const diff = c.energy_level - prev.energy_level
-      if (diff >= 2) insights.push({ text: `Energy improved significantly from last week (+${diff}).`, type: 'good' })
-      if (diff <= -2) insights.push({ text: `Energy dropped from last week (${diff}).`, type: 'warn' })
+      if (diff >= 3) insights.push({ text: `Energy improved significantly from last week (+${diff}).`, type: 'good' })
+      if (diff <= -3) insights.push({ text: `Energy dropped from last week (${diff}).`, type: 'warn' })
     }
   }
 
@@ -194,7 +194,7 @@ export default function WeeklyBrief({ client }: Props) {
                 ].map(({ label, val }) => (
                   <div key={label} className="flex justify-between text-xs">
                     <span className="text-[#666]">{label}</span>
-                    <span className={val !== null && val <= 2 ? 'text-red-400' : val !== null && val >= 4 ? 'text-green-400' : 'text-[#aaa]'}>
+                    <span className={val !== null && val <= 4 ? 'text-red-400' : val !== null && val >= 8 ? 'text-green-400' : 'text-[#aaa]'}>
                       {ratingLabel(val)}
                     </span>
                   </div>
