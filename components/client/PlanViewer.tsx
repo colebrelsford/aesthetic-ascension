@@ -14,7 +14,6 @@ const NUTRITION_REMINDERS = [
   'Ensure you have a proper food scale to measure each meal.',
   'Use "MyNetDiary" app to track calories if needed / macro match.',
   'Prep meals in advance where possible — consistency is the key.',
-  'If you go over on one macro, try to compensate on the others.',
 ]
 
 const TRAINING_REMINDERS = [
@@ -23,7 +22,6 @@ const TRAINING_REMINDERS = [
   'All working sets should be taken to failure with proper form.',
   '2–2.5 mins rest between working sets.',
   'Warm up before your first working set — 1–2 lighter sets at 50–60%.',
-  'If a weight feels too easy for all sets, bump it up next session.',
 ]
 
 function Reminders({ items }: { items: string[] }) {
