@@ -10,29 +10,13 @@ interface Props {
 }
 
 interface BriefData {
-  weightThisWeek: WeightLog[]
-  weightLastWeek: WeightLog[]
+  todayWeight: WeightLog | null
+  sevenDaysAgoWeight: WeightLog | null
+  recentLogs: WeightLog[]
   latestCheckin: WeeklyCheckin | null
   priorCheckin: WeeklyCheckin | null
   workoutSessionsThisWeek: number
   totalSetsThisWeek: number
-}
-
-function getRollingRange(daysAgo: number) {
-  const now = new Date()
-  const end = new Date(now)
-  end.setDate(now.getDate() - daysAgo)
-  const start = new Date(end)
-  start.setDate(end.getDate() - 7)
-  return {
-    start: start.toISOString().split('T')[0],
-    end: now.toISOString().split('T')[0],
-  }
-}
-
-function avg(logs: WeightLog[]) {
-  if (!logs.length) return null
-  return logs.reduce((s, l) => s + l.weight_lbs, 0) / logs.length
 }
 
 function ratingLabel(val: number | null) {
@@ -54,26 +38,35 @@ export default function WeeklyBrief({ client }: Props) {
     setOpen(true)
     setData(null)
 
-    const thisWeek = getRollingRange(0)
-    const lastWeek = getRollingRange(7)
+    const today = new Date()
+    const todayStr = today.toISOString().split('T')[0]
+    const sevenDaysAgo = new Date(today)
+    sevenDaysAgo.setDate(today.getDate() - 7)
+    const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
+    const fourteenDaysAgoStr = new Date(today.getTime() - 14 * 86400000).toISOString().split('T')[0]
 
     const [
-      { data: wThis },
-      { data: wLast },
+      { data: recentLogs },
       { data: checkins },
       { data: sessions },
       { data: sets },
     ] = await Promise.all([
-      supabase.from('weight_logs').select('*').eq('client_id', client.id).gte('date', thisWeek.start).lte('date', thisWeek.end),
-      supabase.from('weight_logs').select('*').eq('client_id', client.id).gte('date', lastWeek.start).lte('date', lastWeek.end),
+      supabase.from('weight_logs').select('*').eq('client_id', client.id).gte('date', fourteenDaysAgoStr).lte('date', todayStr).order('date', { ascending: false }),
       supabase.from('weekly_checkins').select('*').eq('client_id', client.id).order('week_start', { ascending: false }).limit(2),
-      supabase.from('workout_sessions').select('id').eq('client_id', client.id).gte('session_date', thisWeek.start),
-      supabase.from('set_logs').select('id').eq('client_id', client.id).gte('created_at', thisWeek.start + 'T00:00:00'),
+      supabase.from('workout_sessions').select('id').eq('client_id', client.id).gte('session_date', sevenDaysAgoStr),
+      supabase.from('set_logs').select('id').eq('client_id', client.id).gte('created_at', sevenDaysAgoStr + 'T00:00:00'),
     ])
 
+    const logs = recentLogs || []
+    // Most recent log in last 7 days
+    const todayWeight = logs.find(l => l.date >= sevenDaysAgoStr) || null
+    // Most recent log from 7–14 days ago
+    const sevenDaysAgoWeight = logs.find(l => l.date < sevenDaysAgoStr) || null
+
     setData({
-      weightThisWeek: wThis || [],
-      weightLastWeek: wLast || [],
+      todayWeight,
+      sevenDaysAgoWeight,
+      recentLogs: logs,
       latestCheckin: checkins?.[0] || null,
       priorCheckin: checkins?.[1] || null,
       workoutSessionsThisWeek: sessions?.length || 0,
@@ -105,10 +98,10 @@ export default function WeeklyBrief({ client }: Props) {
 
   if (!data) return null
 
-  const thisAvg = avg(data.weightThisWeek)
-  const lastAvg = avg(data.weightLastWeek)
-  const weightDiff = thisAvg && lastAvg ? thisAvg - lastAvg : null
-  const latestWeight = data.weightThisWeek.sort((a, b) => b.date.localeCompare(a.date))[0]
+  const weightDiff = data.todayWeight && data.sevenDaysAgoWeight
+    ? data.todayWeight.weight_lbs - data.sevenDaysAgoWeight.weight_lbs
+    : null
+  const latestWeight = data.todayWeight
   const c = data.latestCheckin
   const prev = data.priorCheckin
 
@@ -132,11 +125,11 @@ export default function WeeklyBrief({ client }: Props) {
   }
 
   if (weightDiff !== null) {
-    if (Math.abs(weightDiff) < 0.3) insights.push({ text: 'Weight is stable week-over-week.', type: 'neutral' })
-    else if (weightDiff < 0) insights.push({ text: `Down ${Math.abs(weightDiff).toFixed(1)} lbs on weekly average — on track.`, type: 'good' })
-    else insights.push({ text: `Up ${weightDiff.toFixed(1)} lbs on weekly average — review if intended.`, type: 'warn' })
-  } else if (data.weightThisWeek.length === 0) {
-    insights.push({ text: 'No weight logged this week — remind them to track daily.', type: 'warn' })
+    if (Math.abs(weightDiff) < 0.3) insights.push({ text: 'Weight is stable vs. 7 days ago.', type: 'neutral' })
+    else if (weightDiff < 0) insights.push({ text: `Down ${Math.abs(weightDiff).toFixed(1)} lbs vs. 7 days ago — on track.`, type: 'good' })
+    else insights.push({ text: `Up ${weightDiff.toFixed(1)} lbs vs. 7 days ago — review if intended.`, type: 'warn' })
+  } else if (!data.todayWeight) {
+    insights.push({ text: 'No weight logged in the last 7 days — remind them to track daily.', type: 'warn' })
   }
 
   if (data.workoutSessionsThisWeek === 0) {
@@ -179,14 +172,19 @@ export default function WeeklyBrief({ client }: Props) {
             <p className="text-[#555] text-xs uppercase tracking-wider mb-2">Weight</p>
             <div className="flex items-center gap-3 flex-wrap">
               {latestWeight ? (
-                <span className="text-white font-semibold">{latestWeight.weight_lbs} lbs</span>
+                <span className="text-white font-semibold">{latestWeight.weight_lbs} lbs
+                  <span className="text-[#555] font-normal text-xs ml-1.5">({latestWeight.date})</span>
+                </span>
               ) : (
-                <span className="text-[#555] text-sm">No logs this week</span>
+                <span className="text-[#555] text-sm">No logs in last 7 days</span>
+              )}
+              {data.sevenDaysAgoWeight && (
+                <span className="text-[#555] text-xs">7 days ago: {data.sevenDaysAgoWeight.weight_lbs} lbs</span>
               )}
               {weightDiff !== null && (
                 <span className="flex items-center gap-1 text-xs font-medium" style={{ color: weightDiff < 0 ? '#4ade80' : weightDiff > 0 ? '#f87171' : '#888' }}>
                   {weightDiff < 0 ? <TrendingDown className="w-3.5 h-3.5" /> : weightDiff > 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
-                  {weightDiff > 0 ? '+' : ''}{weightDiff.toFixed(1)} lbs vs last week
+                  {weightDiff > 0 ? '+' : ''}{weightDiff.toFixed(1)} lbs
                 </span>
               )}
             </div>
