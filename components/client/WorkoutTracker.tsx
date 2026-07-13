@@ -219,6 +219,15 @@ export default function WorkoutTracker({ clientId }: Props) {
           <div key={ex.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3">
             <h4 className="font-medium text-white">{ex.name}</h4>
 
+            {(ex.target_sets || ex.target_reps) && (
+              <div className="rounded-lg px-3 py-2" style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}>
+                <p className="text-xs font-medium" style={{ color: '#C9A84C' }}>
+                  Target: {ex.target_sets ? `${ex.target_sets} sets` : ''}{ex.target_sets && ex.target_reps ? ' × ' : ''}{ex.target_reps ? `${ex.target_reps} reps` : ''}
+                  {ex.exercise_notes ? <span className="text-[#888] font-normal ml-2">— {ex.exercise_notes}</span> : null}
+                </p>
+              </div>
+            )}
+
             {lastSessionSets.length > 0 && (
               <div className="bg-zinc-800 rounded-lg px-3 py-2">
                 <p className="text-zinc-500 text-xs mb-1.5">Last session</p>

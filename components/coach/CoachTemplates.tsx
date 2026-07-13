@@ -147,6 +147,9 @@ export default function CoachTemplates({ coachId, clients }: Props) {
       client_id: clientId,
       name: ex.name,
       display_order: i,
+      target_sets: ex.sets ? parseInt(ex.sets) : null,
+      target_reps: ex.reps || null,
+      exercise_notes: ex.notes || null,
     }))
     const { error: exErr } = await supabase.from('workout_exercises').insert(exerciseRows)
     setAssigning(null)

@@ -73,6 +73,9 @@ export interface WorkoutExercise {
   client_id: string
   name: string
   display_order: number
+  target_sets: number | null
+  target_reps: string | null
+  exercise_notes: string | null
   created_at: string
 }
 
