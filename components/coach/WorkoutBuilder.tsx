@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { WorkoutTemplate, WorkoutExercise } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -39,6 +39,8 @@ export default function WorkoutBuilder({ clientId }: Props) {
   const [editingExId, setEditingExId] = useState<string | null>(null)
   const [editEx, setEditEx] = useState<EditExState>({ name: '', sets: '', reps: '', notes: '' })
   const [loading, setLoading] = useState(false)
+  const [dragOver, setDragOver] = useState<string | null>(null)
+  const dragItem = useRef<{ templateId: string; index: number } | null>(null)
   const supabase = createClient()
 
   useEffect(() => { load() }, [clientId])
@@ -141,6 +143,16 @@ export default function WorkoutBuilder({ clientId }: Props) {
     setExercises(prev => ({ ...prev, [templateId]: prev[templateId].filter(e => e.id !== exerciseId) }))
   }
 
+  async function reorder(templateId: string, fromIndex: number, toIndex: number) {
+    if (fromIndex === toIndex) return
+    const list = [...(exercises[templateId] || [])]
+    const [moved] = list.splice(fromIndex, 1)
+    list.splice(toIndex, 0, moved)
+    const reindexed = list.map((ex, i) => ({ ...ex, display_order: i }))
+    setExercises(prev => ({ ...prev, [templateId]: reindexed }))
+    await Promise.all(reindexed.map(ex => supabase.from('workout_exercises').update({ display_order: ex.display_order }).eq('id', ex.id)))
+  }
+
   return (
     <div className="space-y-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
@@ -203,8 +215,22 @@ export default function WorkoutBuilder({ clientId }: Props) {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-2 group py-1">
-                      <GripVertical className="w-4 h-4 text-zinc-700 shrink-0" />
+                    <div
+                      className="flex items-center gap-2 group py-1 rounded-lg transition-colors"
+                      style={dragOver === ex.id ? { background: 'rgba(201,168,76,0.08)', outline: '1px dashed rgba(201,168,76,0.3)' } : {}}
+                      draggable
+                      onDragStart={() => { dragItem.current = { templateId: ex.template_id, index: (exercises[ex.template_id] || []).findIndex(e => e.id === ex.id) } }}
+                      onDragOver={e => { e.preventDefault(); setDragOver(ex.id) }}
+                      onDragLeave={() => setDragOver(null)}
+                      onDrop={() => {
+                        setDragOver(null)
+                        if (!dragItem.current || dragItem.current.templateId !== ex.template_id) return
+                        const toIndex = (exercises[ex.template_id] || []).findIndex(e => e.id === ex.id)
+                        reorder(ex.template_id, dragItem.current.index, toIndex)
+                        dragItem.current = null
+                      }}
+                    >
+                      <GripVertical className="w-4 h-4 text-zinc-600 shrink-0 cursor-grab active:cursor-grabbing" />
                       <div className="flex-1 min-w-0">
                         <span className="text-zinc-200 text-sm">{ex.name}</span>
                         {(ex.target_sets || ex.target_reps) && (
