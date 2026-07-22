@@ -240,9 +240,9 @@ export default function WorkoutBuilder({ clientId }: Props) {
                         )}
                         {ex.exercise_notes && <span className="ml-2 text-zinc-600 text-xs italic">{ex.exercise_notes}</span>}
                       </div>
-                      <div className="flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => startEditEx(ex)} className="text-zinc-600 hover:text-zinc-300"><Pencil className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => deleteExercise(ex.template_id, ex.id)} className="text-zinc-700 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <div className="flex gap-1.5">
+                        <button onClick={() => startEditEx(ex)} className="text-zinc-500 hover:text-zinc-200 transition-colors"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => deleteExercise(ex.template_id, ex.id)} className="text-zinc-600 hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
                   )}
