@@ -58,7 +58,7 @@ function round1(n: number) { return Math.round(n * 10) / 10 }
 function calcMacro(per100: number, qty: number) { return round1((per100 * qty) / 100) }
 
 async function searchFoods(query: string): Promise<SearchResult[]> {
-  const key = process.env.NEXT_PUBLIC_USDA_API_KEY || ''
+  const key = 'o5yw2wzrBFTgCwJzyUtdBQ8I1rHlHJX1vjrCyz4L'
   const results: SearchResult[] = []
 
   await Promise.allSettled([
