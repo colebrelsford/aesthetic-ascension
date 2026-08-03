@@ -10,6 +10,7 @@ export interface Profile {
   checkin_reminder_enabled: boolean
   goal_weight_lbs: number | null
   flagged: boolean
+  status: 'active' | 'dropped' | null
   created_at: string
 }
 

@@ -10,8 +10,9 @@ import ActivityFeed from './ActivityFeed'
 import CoachStats from './CoachStats'
 import CoachTemplates from './CoachTemplates'
 import { useCheckinNotifications } from '@/hooks/useCheckinNotifications'
-import { Users, Bell, BellOff, Search, Flag, Dumbbell } from 'lucide-react'
+import { Users, Bell, BellOff, Search, Flag, Dumbbell, UserX } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { toast } from 'sonner'
 
 interface Props {
   profile: Profile
@@ -46,6 +47,20 @@ export default function CoachDashboard({ profile }: Props) {
     setClients(prev => prev.map(c => c.id === updated.id ? updated : c))
   }
 
+  async function dropClient(client: Profile) {
+    const { error } = await supabase.from('profiles').update({ status: 'dropped' }).eq('id', client.id)
+    if (error) { toast.error('Failed to drop client'); return }
+    setClients(prev => prev.map(c => c.id === client.id ? { ...c, status: 'dropped' } : c))
+    toast.success(`${client.full_name} moved to past clients`)
+  }
+
+  async function reactivateClient(client: Profile) {
+    const { error } = await supabase.from('profiles').update({ status: 'active' }).eq('id', client.id)
+    if (error) { toast.error('Failed to reactivate client'); return }
+    setClients(prev => prev.map(c => c.id === client.id ? { ...c, status: 'active' } : c))
+    toast.success(`${client.full_name} reactivated`)
+  }
+
   async function enableNotifications() {
     if (typeof Notification === 'undefined') return
     const permission = await Notification.requestPermission()
@@ -58,7 +73,10 @@ export default function CoachDashboard({ profile }: Props) {
     }
   }
 
-  const filtered = clients
+  const activeClients = clients.filter(c => !c.status || c.status === 'active')
+  const droppedClients = clients.filter(c => c.status === 'dropped')
+
+  const filtered = activeClients
     .filter(c => {
       const matchSearch = c.full_name.toLowerCase().includes(search.toLowerCase())
       const matchFlag = showFlaggedOnly ? c.flagged : true
@@ -112,12 +130,13 @@ export default function CoachDashboard({ profile }: Props) {
       </div>
 
       <div className="max-w-5xl mx-auto px-4 pb-10 space-y-6 mt-4">
-        <CoachStats totalClients={clients.length} />
+        <CoachStats totalClients={activeClients.length} />
 
         <Tabs defaultValue="clients" className="space-y-5">
           <TabsList className="flex gap-1 p-1.5 rounded-xl h-auto w-fit" style={{ background: '#111', border: '1px solid rgba(201,168,76,0.12)' }}>
             {[
               { value: 'clients', label: 'Clients', icon: <Users className="w-3.5 h-3.5" /> },
+              { value: 'past', label: 'Past Clients', icon: <UserX className="w-3.5 h-3.5" /> },
               { value: 'activity', label: 'Activity', icon: null },
               { value: 'templates', label: 'Templates', icon: <Dumbbell className="w-3.5 h-3.5" /> },
             ].map(t => (
@@ -126,6 +145,60 @@ export default function CoachDashboard({ profile }: Props) {
               </TabsTrigger>
             ))}
           </TabsList>
+
+          <TabsContent value="past">
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.06)' }}>
+                  <UserX className="w-3.5 h-3.5 text-zinc-500" />
+                </div>
+                <h2 className="text-base font-semibold text-white">Past Clients</h2>
+                <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(255,255,255,0.06)', color: '#666' }}>{droppedClients.length}</span>
+              </div>
+              {droppedClients.length === 0 ? (
+                <div className="rounded-2xl text-[#555] text-sm text-center py-14" style={{ border: '1px dashed rgba(255,255,255,0.08)' }}>
+                  No past clients yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {droppedClients.map(client => {
+                    const initials = client.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+                    return (
+                      <div key={client.id} className="rounded-2xl p-4 flex items-center justify-between gap-4" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <div className="flex items-center gap-3">
+                          {client.avatar_url ? (
+                            <img src={client.avatar_url} alt="" className="w-9 h-9 rounded-xl object-cover shrink-0 opacity-60" />
+                          ) : (
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold shrink-0 opacity-60" style={{ background: 'rgba(255,255,255,0.06)', color: '#666' }}>{initials}</div>
+                          )}
+                          <div>
+                            <p className="font-semibold text-zinc-400 text-sm">{client.full_name}</p>
+                            <p className="text-[#555] text-xs">{client.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            onClick={() => setSelectedClient(client)}
+                            className="text-xs px-3 py-1.5 rounded-lg text-zinc-400 hover:text-white transition-colors"
+                            style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}
+                          >
+                            View data
+                          </button>
+                          <button
+                            onClick={() => reactivateClient(client)}
+                            className="text-xs px-3 py-1.5 rounded-lg font-medium transition-colors text-black"
+                            style={{ background: 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}
+                          >
+                            Reactivate
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </TabsContent>
 
           <TabsContent value="activity">
             <ActivityFeed coachId={profile.id} />
@@ -200,6 +273,7 @@ export default function CoachDashboard({ profile }: Props) {
                   coachId={profile.id}
                   onClick={() => setSelectedClient(client)}
                   onFlagToggle={updateClient}
+                  onDrop={dropClient}
                 />
               ))}
             </div>

@@ -27,6 +27,22 @@ const TAB_CLASS = `text-[#666] text-xs font-medium rounded-lg px-3 py-1.5 transi
   data-[state=active]:text-black data-[state=active]:font-semibold`
 
 export default function ClientDashboard({ profile }: Props) {
+  if (profile.status === 'dropped') {
+    return (
+      <div className="min-h-screen bg-black flex flex-col items-center justify-center px-6 text-center">
+        <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-5" style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+        </div>
+        <h2 className="text-white font-semibold text-xl mb-2">Access Paused</h2>
+        <p className="text-zinc-500 text-sm max-w-xs leading-relaxed">
+          Your coaching access has been paused. Reach out to your coach to get back on the program.
+        </p>
+      </div>
+    )
+  }
+
   const [plan, setPlan] = useState<Plan | null>(null)
   const [weightLogs, setWeightLogs] = useState<WeightLog[]>([])
   const [avatarUrl, setAvatarUrl] = useState<string | null>(profile.avatar_url)

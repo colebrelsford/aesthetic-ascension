@@ -3,16 +3,17 @@
 import { useEffect, useState } from 'react'
 import { Profile, WeightLog } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
-import { ChevronRight, TrendingDown, TrendingUp, Minus, Flag } from 'lucide-react'
+import { ChevronRight, TrendingDown, TrendingUp, Minus, Flag, UserX } from 'lucide-react'
 
 interface Props {
   client: Profile
   coachId: string
   onClick: () => void
   onFlagToggle: (updated: Profile) => void
+  onDrop?: (client: Profile) => void
 }
 
-export default function ClientCard({ client, coachId, onClick, onFlagToggle }: Props) {
+export default function ClientCard({ client, coachId, onClick, onFlagToggle, onDrop }: Props) {
   const [latestWeight, setLatestWeight] = useState<WeightLog | null>(null)
   const [prevWeight, setPrevWeight] = useState<WeightLog | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -122,7 +123,7 @@ export default function ClientCard({ client, coachId, onClick, onFlagToggle }: P
       <button
         onClick={toggleFlag}
         disabled={flagging}
-        className="absolute bottom-3 right-3 p-1.5 rounded-lg transition-colors"
+        className="absolute bottom-3 right-8 p-1.5 rounded-lg transition-colors"
         style={client.flagged
           ? { color: '#f87171', background: 'rgba(239,68,68,0.12)' }
           : { color: '#444', background: 'transparent' }
@@ -131,6 +132,22 @@ export default function ClientCard({ client, coachId, onClick, onFlagToggle }: P
       >
         <Flag className="w-3.5 h-3.5" />
       </button>
+
+      {/* Drop button */}
+      {onDrop && (
+        <button
+          onClick={e => {
+            e.stopPropagation()
+            if (confirm(`Drop ${client.full_name} as a client? They'll be moved to Past Clients.`)) {
+              onDrop(client)
+            }
+          }}
+          className="absolute bottom-3 right-2 p-1.5 rounded-lg transition-colors text-[#333] hover:text-[#888]"
+          title="Drop client"
+        >
+          <UserX className="w-3.5 h-3.5" />
+        </button>
+      )}
     </button>
   )
 }
