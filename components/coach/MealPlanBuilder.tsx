@@ -58,9 +58,52 @@ function round1(n: number) { return Math.round(n * 10) / 10 }
 function calcMacro(per100: number, qty: number) { return round1((per100 * qty) / 100) }
 
 async function searchFoods(query: string): Promise<SearchResult[]> {
+  const key = process.env.NEXT_PUBLIC_USDA_API_KEY || ''
   const results: SearchResult[] = []
+
   await Promise.allSettled([
-    fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=15&fields=code,product_name,brands,nutriments`)
+    // USDA Foundation + SR Legacy — best for generic whole foods (chicken breast, ground beef, rice, etc.)
+    fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&api_key=${key}&pageSize=15&dataType=Foundation,SR%20Legacy`)
+      .then(r => r.json())
+      .then(data => {
+        for (const f of (data.foods || [])) {
+          const get = (id: number) => (f.foodNutrients || []).find((n: { nutrientId: number; value: number }) => n.nutrientId === id)?.value ?? 0
+          const cal = get(1008)
+          if (!cal) continue
+          results.push({
+            id: `usda-gen-${f.fdcId}`,
+            name: f.description,
+            brand: null,
+            cal100: Math.round(cal),
+            pro100: get(1003),
+            carb100: get(1005),
+            fat100: get(1004),
+          })
+        }
+      }),
+
+    // USDA Branded — packaged/branded products
+    fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&api_key=${key}&pageSize=15&dataType=Branded`)
+      .then(r => r.json())
+      .then(data => {
+        for (const f of (data.foods || [])) {
+          const get = (id: number) => (f.foodNutrients || []).find((n: { nutrientId: number; value: number }) => n.nutrientId === id)?.value ?? 0
+          const cal = get(1008)
+          if (!cal) continue
+          results.push({
+            id: `usda-brand-${f.fdcId}`,
+            name: f.description,
+            brand: f.brandOwner || f.brandName || null,
+            cal100: Math.round(cal),
+            pro100: get(1003),
+            carb100: get(1005),
+            fat100: get(1004),
+          })
+        }
+      }),
+
+    // Open Food Facts — extra branded/international coverage
+    fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=10&fields=code,product_name,brands,nutriments`)
       .then(r => r.json())
       .then(data => {
         for (const p of (data.products || [])) {
@@ -77,26 +120,16 @@ async function searchFoods(query: string): Promise<SearchResult[]> {
           })
         }
       }),
-    fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&api_key=DEMO_KEY&pageSize=10&dataType=Branded,Foundation,SR%20Legacy`)
-      .then(r => r.json())
-      .then(data => {
-        for (const f of (data.foods || [])) {
-          const get = (id: number) => (f.foodNutrients || []).find((n: { nutrientId: number; value: number }) => n.nutrientId === id)?.value ?? 0
-          const cal = get(1008)
-          if (!cal) continue
-          results.push({
-            id: `usda-${f.fdcId}`,
-            name: f.description,
-            brand: f.brandOwner || f.brandName || null,
-            cal100: Math.round(cal),
-            pro100: get(1003),
-            carb100: get(1005),
-            fat100: get(1004),
-          })
-        }
-      }),
   ])
-  return results.slice(0, 25)
+
+  // Deduplicate by name+brand, generics first
+  const seen = new Set<string>()
+  const deduped: SearchResult[] = []
+  for (const r of results) {
+    const key = `${r.name.toLowerCase()}|${(r.brand || '').toLowerCase()}`
+    if (!seen.has(key)) { seen.add(key); deduped.push(r) }
+  }
+  return deduped.slice(0, 30)
 }
 
 export default function MealPlanBuilder({ clientId }: Props) {
