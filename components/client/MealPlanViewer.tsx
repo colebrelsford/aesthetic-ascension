@@ -4,8 +4,15 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { UtensilsCrossed } from 'lucide-react'
 
+interface MealPlan {
+  id: string
+  name: string
+  display_order: number
+}
+
 interface MealPlanMeal {
   id: string
+  plan_id: string
   name: string
   display_order: number
 }
@@ -29,35 +36,50 @@ interface Props {
 function round1(n: number) { return Math.round(n * 10) / 10 }
 
 export default function MealPlanViewer({ clientId }: Props) {
+  const [plans, setPlans] = useState<MealPlan[]>([])
+  const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [meals, setMeals] = useState<MealPlanMeal[]>([])
   const [foods, setFoods] = useState<Record<string, MealPlanFood[]>>({})
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
   useEffect(() => {
-    async function load() {
-      const { data: mealData } = await supabase
-        .from('meal_plan_meals').select('*').eq('client_id', clientId).order('display_order')
-      if (!mealData || mealData.length === 0) { setLoading(false); return }
-      setMeals(mealData)
-      const { data: foodData } = await supabase
-        .from('meal_plan_foods').select('*').eq('client_id', clientId).order('display_order')
-      if (foodData) {
-        const grouped: Record<string, MealPlanFood[]> = {}
-        for (const f of foodData) {
-          if (!grouped[f.meal_id]) grouped[f.meal_id] = []
-          grouped[f.meal_id].push(f)
-        }
-        setFoods(grouped)
+    async function loadPlans() {
+      const { data } = await supabase
+        .from('meal_plan_plans').select('*').eq('client_id', clientId).order('display_order')
+      if (data && data.length > 0) {
+        setPlans(data)
+        setSelectedPlanId(data[0].id)
       }
       setLoading(false)
     }
-    load()
+    loadPlans()
   }, [clientId])
+
+  useEffect(() => {
+    if (!selectedPlanId) return
+    async function loadMeals() {
+      const { data: mealData } = await supabase
+        .from('meal_plan_meals').select('*').eq('plan_id', selectedPlanId).order('display_order')
+      if (!mealData || mealData.length === 0) { setMeals([]); setFoods({}); return }
+      setMeals(mealData)
+      const { data: foodData } = await supabase
+        .from('meal_plan_foods').select('*').eq('client_id', clientId).order('display_order')
+      const mealIds = new Set(mealData.map(m => m.id))
+      const grouped: Record<string, MealPlanFood[]> = {}
+      for (const f of (foodData || [])) {
+        if (!mealIds.has(f.meal_id)) continue
+        if (!grouped[f.meal_id]) grouped[f.meal_id] = []
+        grouped[f.meal_id].push(f)
+      }
+      setFoods(grouped)
+    }
+    loadMeals()
+  }, [selectedPlanId])
 
   if (loading) return null
 
-  if (meals.length === 0) {
+  if (plans.length === 0) {
     return (
       <div className="rounded-2xl p-8 text-center" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.06)' }}>
         <UtensilsCrossed className="w-6 h-6 mx-auto mb-2 text-zinc-700" />
@@ -76,9 +98,30 @@ export default function MealPlanViewer({ clientId }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Plan switcher */}
+      {plans.length > 1 && (
+        <div className="flex gap-2 flex-wrap">
+          {plans.map(plan => (
+            <button
+              key={plan.id}
+              onClick={() => setSelectedPlanId(plan.id)}
+              className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
+              style={selectedPlanId === plan.id
+                ? { background: 'linear-gradient(135deg, #C9A84C, #E8C97A)', color: '#000' }
+                : { background: '#111', border: '1px solid rgba(255,255,255,0.08)', color: '#888' }
+              }
+            >
+              {plan.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Daily total */}
       <div className="rounded-2xl p-4" style={{ background: '#111', border: '1px solid rgba(201,168,76,0.2)' }}>
-        <p className="text-xs uppercase tracking-wider text-zinc-500 mb-3">Daily Total</p>
+        <p className="text-xs uppercase tracking-wider text-zinc-500 mb-3">
+          Daily Total{plans.length > 1 ? ` — ${plans.find(p => p.id === selectedPlanId)?.name}` : ''}
+        </p>
         <div className="grid grid-cols-4 gap-2">
           {[
             { label: 'Calories', val: daily.cal, unit: 'kcal', color: '#C9A84C' },
@@ -135,6 +178,10 @@ export default function MealPlanViewer({ clientId }: Props) {
           </div>
         )
       })}
+
+      {meals.length === 0 && (
+        <p className="text-zinc-700 text-sm text-center py-4">No meals in this plan yet.</p>
+      )}
     </div>
   )
 }
