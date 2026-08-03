@@ -3,10 +3,12 @@
 import { Plan } from '@/lib/types'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import RichTextEditor from '@/components/shared/RichTextEditor'
+import MealPlanViewer from './MealPlanViewer'
 import { Utensils, Dumbbell, Pill, Info } from 'lucide-react'
 
 interface Props {
   plan: Plan | null
+  clientId: string
 }
 
 const NUTRITION_REMINDERS = [
@@ -46,7 +48,7 @@ function Reminders({ items }: { items: string[] }) {
   )
 }
 
-export default function PlanViewer({ plan }: Props) {
+export default function PlanViewer({ plan, clientId }: Props) {
   if (!plan) {
     return (
       <div className="rounded-2xl p-8 text-center text-[#555] text-sm" style={{ background: '#111', border: '1px solid rgba(201,168,76,0.1)' }}>
@@ -78,10 +80,11 @@ export default function PlanViewer({ plan }: Props) {
 
         <TabsContent value="nutrition" className="m-0 pt-4">
           <Reminders items={NUTRITION_REMINDERS} />
-          {plan.meal_plan ? (
+          <div className="px-4 pb-4">
+            <MealPlanViewer clientId={clientId} />
+          </div>
+          {plan.meal_plan && (
             <RichTextEditor content={plan.meal_plan} editable={false} />
-          ) : (
-            <div className="p-6 text-[#555] text-sm">No meal plan set yet.</div>
           )}
         </TabsContent>
 

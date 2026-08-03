@@ -136,7 +136,7 @@ export default function ClientDashboard({ profile }: Props) {
           </TabsContent>
 
           <TabsContent value="plans">
-            <PlanViewer plan={plan} />
+            <PlanViewer plan={plan} clientId={profile.id} />
           </TabsContent>
 
           <TabsContent value="measurements">

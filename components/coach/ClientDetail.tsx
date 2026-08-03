@@ -15,6 +15,7 @@ import ProgressionView from './ProgressionView'
 import CoachNotes from './CoachNotes'
 import ClientMeasurements from './ClientMeasurements'
 import WeeklyBrief from './WeeklyBrief'
+import MealPlanBuilder from './MealPlanBuilder'
 
 interface Props {
   client: Profile
@@ -146,6 +147,7 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
             { value: 'plans', label: 'Plans' },
             { value: 'checkins', label: 'Check-ins' },
             { value: 'photos', label: 'Photos' },
+            { value: 'mealplan', label: 'Meal Builder' },
             { value: 'measurements', label: 'Measurements' },
             { value: 'notes', label: 'Notes' },
           ].map(t => (
@@ -170,6 +172,9 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
         </TabsContent>
         <TabsContent value="photos">
           <PhotoComparison photos={photos} />
+        </TabsContent>
+        <TabsContent value="mealplan">
+          <MealPlanBuilder clientId={client.id} />
         </TabsContent>
         <TabsContent value="measurements">
           <ClientMeasurements clientId={client.id} />
