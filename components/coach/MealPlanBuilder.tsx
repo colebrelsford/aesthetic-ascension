@@ -46,6 +46,8 @@ interface SearchResult {
   pro100: number
   carb100: number
   fat100: number
+  servingSize: number | null    // grams per serving
+  servingUnit: string | null    // e.g. "1 slice", "1 cup"
 }
 
 interface Props {
@@ -62,7 +64,7 @@ async function searchFoods(query: string): Promise<SearchResult[]> {
   const results: SearchResult[] = []
 
   await Promise.allSettled([
-    // USDA Foundation + SR Legacy — best for generic whole foods (chicken breast, ground beef, rice, etc.)
+    // USDA Foundation + SR Legacy — generics (chicken breast, ground beef, rice, etc.)
     fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&api_key=${key}&pageSize=15&dataType=Foundation,SR%20Legacy`)
       .then(r => r.json())
       .then(data => {
@@ -78,11 +80,13 @@ async function searchFoods(query: string): Promise<SearchResult[]> {
             pro100: get(1003),
             carb100: get(1005),
             fat100: get(1004),
+            servingSize: f.servingSize ?? null,
+            servingUnit: f.servingSizeUnit ? `${f.householdServingFullText || ''} (${f.servingSize}${f.servingSizeUnit})`.trim() : null,
           })
         }
       }),
 
-    // USDA Branded — packaged/branded products
+    // USDA Branded — packaged/branded products with serving size
     fetch(`https://api.nal.usda.gov/fdc/v1/foods/search?query=${encodeURIComponent(query)}&api_key=${key}&pageSize=15&dataType=Branded`)
       .then(r => r.json())
       .then(data => {
@@ -90,6 +94,7 @@ async function searchFoods(query: string): Promise<SearchResult[]> {
           const get = (id: number) => (f.foodNutrients || []).find((n: { nutrientId: number; value: number }) => n.nutrientId === id)?.value ?? 0
           const cal = get(1008)
           if (!cal) continue
+          const servingG = f.servingSize && f.servingSizeUnit?.toLowerCase() === 'g' ? f.servingSize : null
           results.push({
             id: `usda-brand-${f.fdcId}`,
             name: f.description,
@@ -98,12 +103,14 @@ async function searchFoods(query: string): Promise<SearchResult[]> {
             pro100: get(1003),
             carb100: get(1005),
             fat100: get(1004),
+            servingSize: servingG,
+            servingUnit: f.householdServingFullText || (servingG ? `${servingG}g` : null),
           })
         }
       }),
 
     // Open Food Facts — extra branded/international coverage
-    fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=10&fields=code,product_name,brands,nutriments`)
+    fetch(`https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&json=1&page_size=10&fields=code,product_name,brands,nutriments,serving_size,serving_quantity`)
       .then(r => r.json())
       .then(data => {
         for (const p of (data.products || [])) {
@@ -117,6 +124,8 @@ async function searchFoods(query: string): Promise<SearchResult[]> {
             pro100: p.nutriments?.['proteins_100g'] ?? 0,
             carb100: p.nutriments?.['carbohydrates_100g'] ?? 0,
             fat100: p.nutriments?.['fat_100g'] ?? 0,
+            servingSize: p.serving_quantity ?? null,
+            servingUnit: p.serving_size || null,
           })
         }
       }),
@@ -143,6 +152,7 @@ export default function MealPlanBuilder({ clientId }: Props) {
   const [searching, setSearching] = useState(false)
   const [selectedFood, setSelectedFood] = useState<SearchResult | null>(null)
   const [quantity, setQuantity] = useState('100')
+  const [useServings, setUseServings] = useState(false)
   const [saving, setSaving] = useState(false)
   const [customMealName, setCustomMealName] = useState('')
   const [addingCustomMeal, setAddingCustomMeal] = useState(false)
@@ -253,6 +263,7 @@ export default function MealPlanBuilder({ clientId }: Props) {
     setSearchResults([])
     setSelectedFood(null)
     setQuantity('100')
+    setUseServings(false)
   }
 
   function closeSearch() {
@@ -261,23 +272,30 @@ export default function MealPlanBuilder({ clientId }: Props) {
     setSearchResults([])
     setSelectedFood(null)
     setQuantity('100')
+    setUseServings(false)
   }
 
   async function addFoodToMeal() {
     if (!selectedFood || !addingFoodTo) return
-    const qty = parseFloat(quantity) || 100
+    const enteredQty = parseFloat(quantity) || 1
+    const grams = useServings && selectedFood.servingSize
+      ? enteredQty * selectedFood.servingSize
+      : enteredQty
+    const displayQty = useServings && selectedFood.servingSize
+      ? grams
+      : enteredQty
     setSaving(true)
     const { data, error } = await supabase.from('meal_plan_foods').insert({
       meal_id: addingFoodTo,
       client_id: clientId,
       food_name: selectedFood.name,
       brand_name: selectedFood.brand,
-      quantity: qty,
+      quantity: Math.round(displayQty),
       unit: 'g',
-      calories: calcMacro(selectedFood.cal100, qty),
-      protein_g: calcMacro(selectedFood.pro100, qty),
-      carbs_g: calcMacro(selectedFood.carb100, qty),
-      fat_g: calcMacro(selectedFood.fat100, qty),
+      calories: calcMacro(selectedFood.cal100, grams),
+      protein_g: calcMacro(selectedFood.pro100, grams),
+      carbs_g: calcMacro(selectedFood.carb100, grams),
+      fat_g: calcMacro(selectedFood.fat100, grams),
       calories_per_100g: selectedFood.cal100,
       protein_per_100g: selectedFood.pro100,
       carbs_per_100g: selectedFood.carb100,
@@ -306,12 +324,16 @@ export default function MealPlanBuilder({ clientId }: Props) {
     carb: round1(allFoods.reduce((s, f) => s + f.carbs_g, 0)),
     fat: round1(allFoods.reduce((s, f) => s + f.fat_g, 0)),
   }
-  const qty = parseFloat(quantity) || 100
+  const qty = parseFloat(quantity) || 1
+  // Convert to grams for macro calculation
+  const qtyGrams = useServings && selectedFood?.servingSize
+    ? qty * selectedFood.servingSize
+    : qty
   const preview = selectedFood ? {
-    cal: calcMacro(selectedFood.cal100, qty),
-    pro: calcMacro(selectedFood.pro100, qty),
-    carb: calcMacro(selectedFood.carb100, qty),
-    fat: calcMacro(selectedFood.fat100, qty),
+    cal: calcMacro(selectedFood.cal100, qtyGrams),
+    pro: calcMacro(selectedFood.pro100, qtyGrams),
+    carb: calcMacro(selectedFood.carb100, qtyGrams),
+    fat: calcMacro(selectedFood.fat100, qtyGrams),
   } : null
 
   // No plans yet
@@ -521,10 +543,31 @@ export default function MealPlanBuilder({ clientId }: Props) {
                             {selectedFood.brand && <p className="text-zinc-500 text-xs">{selectedFood.brand}</p>}
                             <p className="text-zinc-600 text-xs mt-0.5">{selectedFood.cal100} kcal · {selectedFood.pro100}g P · {selectedFood.carb100}g C · {selectedFood.fat100}g F per 100g</p>
                           </div>
-                          <button onClick={() => { setSelectedFood(null); setQuantity('100') }} className="text-zinc-600 hover:text-zinc-400 shrink-0">
+                          <button onClick={() => { setSelectedFood(null); setQuantity('100'); setUseServings(false) }} className="text-zinc-600 hover:text-zinc-400 shrink-0">
                             <X className="w-4 h-4" />
                           </button>
                         </div>
+
+                        {/* Grams / Servings toggle */}
+                        {selectedFood.servingSize && (
+                          <div className="flex gap-1 p-0.5 rounded-lg w-fit" style={{ background: 'rgba(0,0,0,0.3)' }}>
+                            <button
+                              onClick={() => { setUseServings(false); setQuantity('100') }}
+                              className="px-3 py-1 rounded-md text-xs font-medium transition-all"
+                              style={!useServings ? { background: 'rgba(201,168,76,0.2)', color: '#C9A84C' } : { color: '#666' }}
+                            >
+                              Grams
+                            </button>
+                            <button
+                              onClick={() => { setUseServings(true); setQuantity('1') }}
+                              className="px-3 py-1 rounded-md text-xs font-medium transition-all"
+                              style={useServings ? { background: 'rgba(201,168,76,0.2)', color: '#C9A84C' } : { color: '#666' }}
+                            >
+                              Servings {selectedFood.servingUnit ? `(${selectedFood.servingUnit})` : ''}
+                            </button>
+                          </div>
+                        )}
+
                         <div className="flex items-center gap-3 flex-wrap">
                           <div className="flex items-center gap-2">
                             <Input
@@ -532,9 +575,15 @@ export default function MealPlanBuilder({ clientId }: Props) {
                               value={quantity}
                               onChange={e => setQuantity(e.target.value)}
                               className="w-20 bg-zinc-900 border-zinc-700 text-white text-sm h-8"
-                              min="1"
+                              min="0.1"
+                              step={useServings ? '0.5' : '1'}
                             />
-                            <span className="text-zinc-500 text-sm">grams</span>
+                            <span className="text-zinc-500 text-sm">
+                              {useServings ? 'servings' : 'grams'}
+                            </span>
+                            {useServings && selectedFood.servingSize && (
+                              <span className="text-zinc-600 text-xs">= {Math.round(qtyGrams)}g</span>
+                            )}
                           </div>
                           {preview && (
                             <div className="flex items-center gap-3 text-xs">
@@ -551,7 +600,7 @@ export default function MealPlanBuilder({ clientId }: Props) {
                           className="w-full py-2 rounded-lg text-sm font-semibold text-black disabled:opacity-50"
                           style={{ background: 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}
                         >
-                          {saving ? 'Adding…' : `Add ${qty}g to ${meal.name}`}
+                          {saving ? 'Adding…' : `Add to ${meal.name}`}
                         </button>
                       </div>
                     )}
