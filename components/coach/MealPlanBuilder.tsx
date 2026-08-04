@@ -513,21 +513,38 @@ export default function MealPlanBuilder({ clientId }: Props) {
                     </div>
 
                     {searchResults.length > 0 && !selectedFood && (
-                      <div className="rounded-xl overflow-hidden max-h-56 overflow-y-auto" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
-                        {searchResults.map(r => (
-                          <button
-                            key={r.id}
-                            onClick={() => setSelectedFood(r)}
-                            className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-zinc-800 transition-colors text-left"
-                            style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="text-zinc-200 text-sm truncate">{r.name}</p>
-                              {r.brand && <p className="text-zinc-600 text-xs truncate">{r.brand}</p>}
-                            </div>
-                            <span className="text-zinc-500 text-xs shrink-0 ml-3">{r.cal100} kcal/100g</span>
-                          </button>
-                        ))}
+                      <div className="rounded-xl overflow-hidden max-h-72 overflow-y-auto" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+                        {searchResults.map(r => {
+                          const calPerServing = r.servingSize ? calcMacro(r.cal100, r.servingSize) : null
+                          const proPerServing = r.servingSize ? calcMacro(r.pro100, r.servingSize) : null
+                          const carbPerServing = r.servingSize ? calcMacro(r.carb100, r.servingSize) : null
+                          const fatPerServing = r.servingSize ? calcMacro(r.fat100, r.servingSize) : null
+                          return (
+                            <button
+                              key={r.id}
+                              onClick={() => { setSelectedFood(r); setUseServings(!!r.servingSize); setQuantity(r.servingSize ? '1' : '100') }}
+                              className="w-full flex items-start justify-between px-3 py-3 hover:bg-zinc-800 transition-colors text-left gap-3"
+                              style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-zinc-200 text-sm font-medium truncate">{r.name}</p>
+                                {r.brand && <p className="text-zinc-500 text-xs truncate">{r.brand}</p>}
+                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                                  {calPerServing !== null && r.servingUnit && (
+                                    <span className="text-xs" style={{ color: '#C9A84C' }}>
+                                      {calPerServing} kcal · {proPerServing}g P · {carbPerServing}g C · {fatPerServing}g F
+                                      <span className="text-zinc-600 ml-1">per {r.servingUnit}</span>
+                                    </span>
+                                  )}
+                                  <span className="text-zinc-600 text-xs">
+                                    {r.cal100} kcal · {r.pro100}g P · {r.carb100}g C · {r.fat100}g F
+                                    <span className="ml-1">per 100g</span>
+                                  </span>
+                                </div>
+                              </div>
+                            </button>
+                          )
+                        })}
                       </div>
                     )}
 
