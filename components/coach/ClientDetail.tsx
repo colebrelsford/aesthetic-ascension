@@ -174,7 +174,7 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
           <PhotoComparison photos={photos} />
         </TabsContent>
         <TabsContent value="mealplan">
-          <MealPlanBuilder clientId={client.id} />
+          <MealPlanBuilder clientId={client.id} coachId={coachId} />
         </TabsContent>
         <TabsContent value="measurements">
           <ClientMeasurements clientId={client.id} />

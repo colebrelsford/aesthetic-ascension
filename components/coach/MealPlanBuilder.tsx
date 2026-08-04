@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Search, X, Loader2, UtensilsCrossed, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, Search, X, Loader2, UtensilsCrossed, BookMarked } from 'lucide-react'
 
 interface MealPlan {
   id: string
@@ -50,8 +50,35 @@ interface SearchResult {
   servingUnit: string | null    // e.g. "1 slice", "1 cup"
 }
 
+interface CustomFood {
+  id: string
+  coach_id: string
+  name: string
+  brand_name: string | null
+  calories_per_100g: number
+  protein_per_100g: number
+  carbs_per_100g: number
+  fat_per_100g: number
+  serving_size_g: number | null
+  serving_unit: string | null
+}
+
+interface ManualEntry {
+  name: string
+  brand: string
+  cal100: string
+  pro100: string
+  carb100: string
+  fat100: string
+  servingG: string
+  servingUnit: string
+}
+
+const EMPTY_MANUAL: ManualEntry = { name: '', brand: '', cal100: '', pro100: '', carb100: '', fat100: '', servingG: '', servingUnit: '' }
+
 interface Props {
   clientId: string
+  coachId: string
 }
 
 const DEFAULT_MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks']
@@ -141,7 +168,7 @@ async function searchFoods(query: string): Promise<SearchResult[]> {
   return deduped.slice(0, 30)
 }
 
-export default function MealPlanBuilder({ clientId }: Props) {
+export default function MealPlanBuilder({ clientId, coachId }: Props) {
   const [plans, setPlans] = useState<MealPlan[]>([])
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [meals, setMeals] = useState<MealPlanMeal[]>([])
@@ -158,11 +185,63 @@ export default function MealPlanBuilder({ clientId }: Props) {
   const [addingCustomMeal, setAddingCustomMeal] = useState(false)
   const [newPlanName, setNewPlanName] = useState('')
   const [addingPlan, setAddingPlan] = useState(false)
+  const [customFoods, setCustomFoods] = useState<CustomFood[]>([])
+  const [showManual, setShowManual] = useState(false)
+  const [manual, setManual] = useState<ManualEntry>(EMPTY_MANUAL)
+  const [savingCustom, setSavingCustom] = useState(false)
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const supabase = createClient()
 
-  useEffect(() => { loadPlans() }, [clientId])
+  useEffect(() => { loadPlans(); loadCustomFoods() }, [clientId])
   useEffect(() => { if (selectedPlanId) loadMeals(selectedPlanId) }, [selectedPlanId])
+
+  async function loadCustomFoods() {
+    const { data } = await supabase.from('custom_foods').select('*').eq('coach_id', coachId).order('name')
+    if (data) setCustomFoods(data)
+  }
+
+  async function saveCustomFood() {
+    if (!manual.name.trim() || !manual.cal100) { toast.error('Name and calories are required'); return }
+    setSavingCustom(true)
+    const row = {
+      coach_id: coachId,
+      name: manual.name.trim(),
+      brand_name: manual.brand.trim() || null,
+      calories_per_100g: parseFloat(manual.cal100) || 0,
+      protein_per_100g: parseFloat(manual.pro100) || 0,
+      carbs_per_100g: parseFloat(manual.carb100) || 0,
+      fat_per_100g: parseFloat(manual.fat100) || 0,
+      serving_size_g: manual.servingG ? parseFloat(manual.servingG) : null,
+      serving_unit: manual.servingUnit.trim() || null,
+    }
+    const { data, error } = await supabase.from('custom_foods').insert(row).select().single()
+    setSavingCustom(false)
+    if (error || !data) { toast.error('Failed to save'); return }
+    setCustomFoods(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+    // Auto-select the new custom food
+    const result: SearchResult = {
+      id: `custom-${data.id}`,
+      name: data.name,
+      brand: data.brand_name,
+      cal100: data.calories_per_100g,
+      pro100: data.protein_per_100g,
+      carb100: data.carbs_per_100g,
+      fat100: data.fat_per_100g,
+      servingSize: data.serving_size_g,
+      servingUnit: data.serving_unit,
+    }
+    setSelectedFood(result)
+    setUseServings(!!data.serving_size_g)
+    setQuantity(data.serving_size_g ? '1' : '100')
+    setShowManual(false)
+    setManual(EMPTY_MANUAL)
+    toast.success(`"${data.name}" saved to your food library`)
+  }
+
+  async function deleteCustomFood(id: string) {
+    await supabase.from('custom_foods').delete().eq('id', id)
+    setCustomFoods(prev => prev.filter(f => f.id !== id))
+  }
 
   async function loadPlans() {
     const { data } = await supabase
@@ -264,6 +343,8 @@ export default function MealPlanBuilder({ clientId }: Props) {
     setSelectedFood(null)
     setQuantity('100')
     setUseServings(false)
+    setShowManual(false)
+    setManual(EMPTY_MANUAL)
   }
 
   function closeSearch() {
@@ -273,6 +354,31 @@ export default function MealPlanBuilder({ clientId }: Props) {
     setSelectedFood(null)
     setQuantity('100')
     setUseServings(false)
+    setShowManual(false)
+    setManual(EMPTY_MANUAL)
+  }
+
+  // Custom foods matching search query
+  function matchingCustomFoods(q: string): SearchResult[] {
+    if (!q.trim()) return customFoods.slice(0, 5).map(toSearchResult)
+    const lower = q.toLowerCase()
+    return customFoods
+      .filter(f => f.name.toLowerCase().includes(lower) || (f.brand_name || '').toLowerCase().includes(lower))
+      .map(toSearchResult)
+  }
+
+  function toSearchResult(f: CustomFood): SearchResult {
+    return {
+      id: `custom-${f.id}`,
+      name: f.name,
+      brand: f.brand_name,
+      cal100: f.calories_per_100g,
+      pro100: f.protein_per_100g,
+      carb100: f.carbs_per_100g,
+      fat100: f.fat_per_100g,
+      servingSize: f.serving_size_g,
+      servingUnit: f.serving_unit,
+    }
   }
 
   async function addFoodToMeal() {
@@ -512,44 +618,124 @@ export default function MealPlanBuilder({ clientId }: Props) {
                       {searching && <Loader2 className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 animate-spin" />}
                     </div>
 
-                    {searchResults.length > 0 && !selectedFood && (
-                      <div className="rounded-xl overflow-hidden max-h-72 overflow-y-auto" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
-                        {searchResults.map(r => {
-                          const calPerServing = r.servingSize ? calcMacro(r.cal100, r.servingSize) : null
-                          const proPerServing = r.servingSize ? calcMacro(r.pro100, r.servingSize) : null
-                          const carbPerServing = r.servingSize ? calcMacro(r.carb100, r.servingSize) : null
-                          const fatPerServing = r.servingSize ? calcMacro(r.fat100, r.servingSize) : null
-                          return (
-                            <button
-                              key={r.id}
-                              onClick={() => { setSelectedFood(r); setUseServings(!!r.servingSize); setQuantity(r.servingSize ? '1' : '100') }}
-                              className="w-full flex items-start justify-between px-3 py-3 hover:bg-zinc-800 transition-colors text-left gap-3"
-                              style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
-                            >
-                              <div className="min-w-0 flex-1">
-                                <p className="text-zinc-200 text-sm font-medium truncate">{r.name}</p>
-                                {r.brand && <p className="text-zinc-500 text-xs truncate">{r.brand}</p>}
-                                <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
-                                  {calPerServing !== null && r.servingUnit && (
-                                    <span className="text-xs" style={{ color: '#C9A84C' }}>
-                                      {calPerServing} kcal · {proPerServing}g P · {carbPerServing}g C · {fatPerServing}g F
-                                      <span className="text-zinc-600 ml-1">per {r.servingUnit}</span>
+                    {/* Results list */}
+                    {!selectedFood && !showManual && (() => {
+                      const custom = matchingCustomFoods(searchQuery)
+                      const allResults = [
+                        ...custom.map(r => ({ ...r, isCustom: true })),
+                        ...searchResults.filter(r => !custom.find(c => c.name === r.name)).map(r => ({ ...r, isCustom: false })),
+                      ]
+                      if (allResults.length === 0 && !searching) return null
+                      return (
+                        <div className="rounded-xl overflow-hidden max-h-72 overflow-y-auto" style={{ border: '1px solid rgba(255,255,255,0.07)' }}>
+                          {allResults.map(r => {
+                            const calPerServing = r.servingSize ? calcMacro(r.cal100, r.servingSize) : null
+                            const proPerServing = r.servingSize ? calcMacro(r.pro100, r.servingSize) : null
+                            const carbPerServing = r.servingSize ? calcMacro(r.carb100, r.servingSize) : null
+                            const fatPerServing = r.servingSize ? calcMacro(r.fat100, r.servingSize) : null
+                            return (
+                              <button
+                                key={r.id}
+                                onClick={() => { setSelectedFood(r); setUseServings(!!r.servingSize); setQuantity(r.servingSize ? '1' : '100') }}
+                                className="w-full flex items-start justify-between px-3 py-3 hover:bg-zinc-800 transition-colors text-left gap-3"
+                                style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-zinc-200 text-sm font-medium truncate">{r.name}</p>
+                                    {r.isCustom && (
+                                      <span className="text-xs px-1.5 py-0.5 rounded shrink-0 font-medium" style={{ background: 'rgba(201,168,76,0.15)', color: '#C9A84C' }}>Saved</span>
+                                    )}
+                                  </div>
+                                  {r.brand && <p className="text-zinc-500 text-xs truncate">{r.brand}</p>}
+                                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                                    {calPerServing !== null && r.servingUnit && (
+                                      <span className="text-xs" style={{ color: '#C9A84C' }}>
+                                        {calPerServing} kcal · {proPerServing}g P · {carbPerServing}g C · {fatPerServing}g F
+                                        <span className="text-zinc-600 ml-1">per {r.servingUnit}</span>
+                                      </span>
+                                    )}
+                                    <span className="text-zinc-600 text-xs">
+                                      {r.cal100} kcal · {r.pro100}g P · {r.carb100}g C · {r.fat100}g F per 100g
                                     </span>
-                                  )}
-                                  <span className="text-zinc-600 text-xs">
-                                    {r.cal100} kcal · {r.pro100}g P · {r.carb100}g C · {r.fat100}g F
-                                    <span className="ml-1">per 100g</span>
-                                  </span>
+                                  </div>
                                 </div>
-                              </div>
-                            </button>
-                          )
-                        })}
-                      </div>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
+
+                    {searchQuery && !searching && searchResults.length === 0 && matchingCustomFoods(searchQuery).length === 0 && !selectedFood && !showManual && (
+                      <p className="text-zinc-600 text-xs text-center py-2">No results found.</p>
                     )}
 
-                    {searchQuery && !searching && searchResults.length === 0 && !selectedFood && (
-                      <p className="text-zinc-600 text-xs text-center py-2">No results. Try different search terms.</p>
+                    {/* Enter manually button */}
+                    {!selectedFood && !showManual && (
+                      <button
+                        onClick={() => setShowManual(true)}
+                        className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                      >
+                        <BookMarked className="w-3.5 h-3.5" /> Enter food manually & save to library
+                      </button>
+                    )}
+
+                    {/* Manual entry form */}
+                    {showManual && !selectedFood && (
+                      <div className="rounded-xl p-3 space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                        <div className="flex items-center justify-between">
+                          <p className="text-white text-xs font-semibold uppercase tracking-wider">Manual Entry</p>
+                          <button onClick={() => { setShowManual(false); setManual(EMPTY_MANUAL) }} className="text-zinc-600 hover:text-zinc-400"><X className="w-3.5 h-3.5" /></button>
+                        </div>
+                        <p className="text-zinc-600 text-xs">Enter macros per 100g from the nutrition label. This will be saved to your food library for reuse.</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="col-span-2">
+                            <Input value={manual.name} onChange={e => setManual(p => ({ ...p, name: e.target.value }))} placeholder="Food name *" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                          </div>
+                          <div className="col-span-2">
+                            <Input value={manual.brand} onChange={e => setManual(p => ({ ...p, brand: e.target.value }))} placeholder="Brand (optional)" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                          </div>
+                        </div>
+                        <p className="text-zinc-600 text-xs font-medium">Per 100g:</p>
+                        <div className="grid grid-cols-4 gap-2">
+                          <div>
+                            <p className="text-zinc-600 text-xs mb-1">Calories *</p>
+                            <Input type="number" value={manual.cal100} onChange={e => setManual(p => ({ ...p, cal100: e.target.value }))} placeholder="0" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                          </div>
+                          <div>
+                            <p className="text-zinc-600 text-xs mb-1">Protein (g)</p>
+                            <Input type="number" value={manual.pro100} onChange={e => setManual(p => ({ ...p, pro100: e.target.value }))} placeholder="0" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                          </div>
+                          <div>
+                            <p className="text-zinc-600 text-xs mb-1">Carbs (g)</p>
+                            <Input type="number" value={manual.carb100} onChange={e => setManual(p => ({ ...p, carb100: e.target.value }))} placeholder="0" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                          </div>
+                          <div>
+                            <p className="text-zinc-600 text-xs mb-1">Fat (g)</p>
+                            <Input type="number" value={manual.fat100} onChange={e => setManual(p => ({ ...p, fat100: e.target.value }))} placeholder="0" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                          </div>
+                        </div>
+                        <p className="text-zinc-600 text-xs font-medium">Serving size (optional):</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <div>
+                            <p className="text-zinc-600 text-xs mb-1">Grams per serving</p>
+                            <Input type="number" value={manual.servingG} onChange={e => setManual(p => ({ ...p, servingG: e.target.value }))} placeholder="e.g. 28" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                          </div>
+                          <div>
+                            <p className="text-zinc-600 text-xs mb-1">Serving label</p>
+                            <Input value={manual.servingUnit} onChange={e => setManual(p => ({ ...p, servingUnit: e.target.value }))} placeholder="e.g. 1 slice" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                          </div>
+                        </div>
+                        <button
+                          onClick={saveCustomFood}
+                          disabled={savingCustom}
+                          className="w-full py-2 rounded-lg text-sm font-semibold text-black disabled:opacity-50"
+                          style={{ background: 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}
+                        >
+                          {savingCustom ? 'Saving…' : 'Save to library & add to meal'}
+                        </button>
+                      </div>
                     )}
 
                     {selectedFood && (
