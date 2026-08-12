@@ -106,7 +106,7 @@ export default function ClientDashboard({ profile }: Props) {
               { value: 'progression', label: 'Workouts' },
               { value: 'plans', label: 'My Plans' },
               { value: 'measurements', label: 'Measurements' },
-              { value: 'nutrition', label: 'Nutrition' },
+              { value: 'nutrition', label: 'Macro Matching' },
               { value: 'checkin', label: 'Check-in' },
               { value: 'history', label: 'History' },
               { value: 'settings', label: 'Settings' },

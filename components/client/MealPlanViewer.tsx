@@ -161,9 +161,9 @@ export default function MealPlanViewer({ clientId }: Props) {
                 <div key={food.id} className="flex items-center gap-3 px-4 py-2.5" style={{ borderBottom: i < mealFoods.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none' }}>
                   <div className="flex-1 min-w-0">
                     <p className="text-zinc-200 text-sm font-medium truncate">{food.food_name}</p>
-                    <p className="text-zinc-600 text-xs">
-                      {food.brand_name && <span className="mr-1">{food.brand_name} ·</span>}
-                      {food.quantity}g
+                    <p className="mt-0.5">
+                      {food.brand_name && <span className="text-zinc-500 text-xs mr-1">{food.brand_name} ·</span>}
+                      <span className="text-zinc-200 text-sm font-semibold">{food.quantity}g</span>
                     </p>
                   </div>
                   <div className="flex items-center gap-3 text-xs shrink-0">

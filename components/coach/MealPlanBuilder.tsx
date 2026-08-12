@@ -748,13 +748,13 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                             </div>
                           ) : (
                             <button
-                              className="flex items-center gap-1 text-zinc-600 text-xs hover:text-zinc-400 transition-colors group mt-0.5"
+                              className="flex items-center gap-1.5 hover:text-zinc-300 transition-colors group mt-0.5"
                               onClick={() => setEditingFood({ id: food.id, mealId: meal.id, qty: String(food.quantity) })}
                               title="Click to edit quantity"
                             >
-                              {food.brand_name && <span>{food.brand_name} · </span>}
-                              <span>{food.quantity}g</span>
-                              <Pencil className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                              {food.brand_name && <span className="text-zinc-500 text-xs">{food.brand_name} · </span>}
+                              <span className="text-zinc-200 text-sm font-semibold">{food.quantity}g</span>
+                              <Pencil className="w-2.5 h-2.5 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
                           )}
                         </div>
