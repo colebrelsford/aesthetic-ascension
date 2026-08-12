@@ -24,6 +24,8 @@ interface MealPlanFood {
   food_name: string
   brand_name: string | null
   quantity: number
+  display_qty: number | null
+  display_unit: string | null
   calories: number
   protein_g: number
   carbs_g: number
@@ -164,7 +166,11 @@ export default function MealPlanViewer({ clientId }: Props) {
                     <p className="text-zinc-200 text-sm font-medium truncate">{food.food_name}</p>
                     <p className="mt-0.5">
                       {food.brand_name && <span className="text-zinc-500 text-xs mr-1">{food.brand_name} ·</span>}
-                      <span className="text-zinc-200 text-sm font-semibold">{food.quantity}g</span>
+                      <span className="text-zinc-200 text-sm font-semibold">
+                        {food.display_qty != null && food.display_unit
+                          ? `${food.display_qty} ${food.display_unit}`
+                          : `${food.quantity}g`}
+                      </span>
                     </p>
                   </div>
                   <div className="flex items-center gap-3 text-xs shrink-0">

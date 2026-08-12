@@ -28,6 +28,8 @@ interface MealPlanFood {
   food_name: string
   brand_name: string | null
   quantity: number
+  display_qty: number | null
+  display_unit: string | null
   calories: number
   protein_g: number
   carbs_g: number
@@ -473,17 +475,17 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
     const grams = useServings && selectedFood.servingSize
       ? enteredQty * selectedFood.servingSize
       : enteredQty
-    const displayQty = useServings && selectedFood.servingSize
-      ? grams
-      : enteredQty
     setSaving(true)
     const { data, error } = await supabase.from('meal_plan_foods').insert({
       meal_id: addingFoodTo,
       client_id: clientId,
       food_name: selectedFood.name,
       brand_name: selectedFood.brand,
-      quantity: Math.round(displayQty),
+      quantity: Math.round(grams),
       unit: 'g',
+      // Human-readable label: "2 eggs" vs "150 g"
+      display_qty: useServings && selectedFood.servingUnit ? enteredQty : null,
+      display_unit: useServings && selectedFood.servingUnit ? selectedFood.servingUnit : null,
       calories: calcMacro(selectedFood.cal100, grams),
       protein_g: calcMacro(selectedFood.pro100, grams),
       carbs_g: calcMacro(selectedFood.carb100, grams),
@@ -798,7 +800,11 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                               title="Click to edit quantity"
                             >
                               {food.brand_name && <span className="text-zinc-500 text-xs">{food.brand_name} · </span>}
-                              <span className="text-zinc-200 text-sm font-semibold">{food.quantity}g</span>
+                              <span className="text-zinc-200 text-sm font-semibold">
+                                {food.display_qty != null && food.display_unit
+                                  ? `${food.display_qty} ${food.display_unit}`
+                                  : `${food.quantity}g`}
+                              </span>
                               <Pencil className="w-2.5 h-2.5 text-zinc-600 opacity-0 group-hover:opacity-100 transition-opacity" />
                             </button>
                           )}
