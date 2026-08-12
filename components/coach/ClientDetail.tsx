@@ -16,6 +16,7 @@ import CoachNotes from './CoachNotes'
 import ClientMeasurements from './ClientMeasurements'
 import WeeklyBrief from './WeeklyBrief'
 import MealPlanBuilder from './MealPlanBuilder'
+import MacroTargetBuilder from './MacroTargetBuilder'
 
 interface Props {
   client: Profile
@@ -148,6 +149,7 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
             { value: 'checkins', label: 'Check-ins' },
             { value: 'photos', label: 'Photos' },
             { value: 'mealplan', label: 'Meal Builder' },
+            { value: 'macros', label: 'Macro Plan' },
             { value: 'measurements', label: 'Measurements' },
             { value: 'notes', label: 'Notes' },
           ].map(t => (
@@ -175,6 +177,9 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
         </TabsContent>
         <TabsContent value="mealplan">
           <MealPlanBuilder clientId={client.id} coachId={coachId} />
+        </TabsContent>
+        <TabsContent value="macros">
+          <MacroTargetBuilder clientId={client.id} coachId={coachId} />
         </TabsContent>
         <TabsContent value="measurements">
           <ClientMeasurements clientId={client.id} />

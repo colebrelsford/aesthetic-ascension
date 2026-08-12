@@ -13,6 +13,7 @@ import WorkoutTracker from './WorkoutTracker'
 import MeasurementsLogger from './MeasurementsLogger'
 import ClientSettings from './PasswordChange'
 import MacroTargets from './MacroTargets'
+import MacroTargetViewer from './MacroTargetViewer'
 import ProfilePhotoUpload from './ProfilePhotoUpload'
 import HomeScreenPrompt from './HomeScreenPrompt'
 import CheckinStreak from './CheckinStreak'
@@ -105,6 +106,7 @@ export default function ClientDashboard({ profile }: Props) {
               { value: 'progression', label: 'Workouts' },
               { value: 'plans', label: 'My Plans' },
               { value: 'measurements', label: 'Measurements' },
+              { value: 'nutrition', label: 'Nutrition' },
               { value: 'checkin', label: 'Check-in' },
               { value: 'history', label: 'History' },
               { value: 'settings', label: 'Settings' },
@@ -141,6 +143,10 @@ export default function ClientDashboard({ profile }: Props) {
 
           <TabsContent value="measurements">
             <MeasurementsLogger clientId={profile.id} />
+          </TabsContent>
+
+          <TabsContent value="nutrition">
+            <MacroTargetViewer clientId={profile.id} />
           </TabsContent>
 
           <TabsContent value="checkin">
