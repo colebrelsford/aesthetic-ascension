@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Search, X, Loader2, UtensilsCrossed, BookMarked, Pencil, Check } from 'lucide-react'
+import { Plus, Trash2, Search, X, Loader2, UtensilsCrossed, BookMarked, Pencil, Check, Settings2 } from 'lucide-react'
 
 interface MealPlan {
   id: string
@@ -191,6 +191,9 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
   const [showManual, setShowManual] = useState(false)
   const [manual, setManual] = useState<ManualEntry>(EMPTY_MANUAL)
   const [savingCustom, setSavingCustom] = useState(false)
+  const [editingCustomFood, setEditingCustomFood] = useState<CustomFood | null>(null)
+  const [editCustomForm, setEditCustomForm] = useState({ name: '', brand: '', cal: '', pro: '', carb: '', fat: '', servingG: '', servingUnit: '' })
+  const [savingCustomEdit, setSavingCustomEdit] = useState(false)
   const [editingFood, setEditingFood] = useState<{ id: string, mealId: string, qty: string } | null>(null)
   const [editingMealId, setEditingMealId] = useState<string | null>(null)
   const [editingMealName, setEditingMealName] = useState('')
@@ -215,6 +218,48 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
     await supabase.from('custom_foods').delete().eq('id', id)
     setCustomFoods(prev => prev.filter(f => f.id !== id))
     toast.success('Removed from library')
+  }
+
+  function openCustomFoodEdit(food: CustomFood, e: React.MouseEvent) {
+    e.stopPropagation()
+    // Reverse-calculate: per-100g → for serving_size_g
+    const g = food.serving_size_g ?? 100
+    const factor = g / 100
+    setEditCustomForm({
+      name: food.name,
+      brand: food.brand_name || '',
+      cal: String(round1(food.calories_per_100g * factor)),
+      pro: String(round1(food.protein_per_100g * factor)),
+      carb: String(round1(food.carbs_per_100g * factor)),
+      fat: String(round1(food.fat_per_100g * factor)),
+      servingG: String(g),
+      servingUnit: food.serving_unit || '',
+    })
+    setEditingCustomFood(food)
+  }
+
+  async function saveCustomFoodEdit() {
+    if (!editingCustomFood) return
+    if (!editCustomForm.name.trim()) { toast.error('Food name is required'); return }
+    const grams = parseFloat(editCustomForm.servingG) || 100
+    const factor = 100 / grams
+    setSavingCustomEdit(true)
+    const update = {
+      name: editCustomForm.name.trim(),
+      brand_name: editCustomForm.brand.trim() || null,
+      calories_per_100g: round1((parseFloat(editCustomForm.cal) || 0) * factor),
+      protein_per_100g:  round1((parseFloat(editCustomForm.pro) || 0) * factor),
+      carbs_per_100g:    round1((parseFloat(editCustomForm.carb) || 0) * factor),
+      fat_per_100g:      round1((parseFloat(editCustomForm.fat) || 0) * factor),
+      serving_size_g:    grams,
+      serving_unit:      editCustomForm.servingUnit.trim() || `${grams}g serving`,
+    }
+    const { data, error } = await supabase.from('custom_foods').update(update).eq('id', editingCustomFood.id).select().single()
+    setSavingCustomEdit(false)
+    if (error || !data) { toast.error('Failed to update'); return }
+    setCustomFoods(prev => prev.map(f => f.id === data.id ? data : f).sort((a, b) => a.name.localeCompare(b.name)))
+    setEditingCustomFood(null)
+    toast.success(`"${data.name}" updated`)
   }
 
   async function saveCustomFood() {
@@ -835,13 +880,22 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                                   </div>
                                 </button>
                                 {r.isCustom && (
-                                  <button
-                                    onClick={e => deleteCustomFood(r.id.replace('custom-', ''), e)}
-                                    className="shrink-0 text-zinc-700 hover:text-red-400 transition-colors mt-0.5"
-                                    title="Remove from library"
-                                  >
-                                    <Trash2 className="w-3.5 h-3.5" />
-                                  </button>
+                                  <div className="flex flex-col gap-1 shrink-0">
+                                    <button
+                                      onClick={e => openCustomFoodEdit(customFoods.find(f => f.id === r.id.replace('custom-', ''))!, e)}
+                                      className="text-zinc-600 hover:text-zinc-300 transition-colors"
+                                      title="Edit food"
+                                    >
+                                      <Pencil className="w-3.5 h-3.5" />
+                                    </button>
+                                    <button
+                                      onClick={e => deleteCustomFood(r.id.replace('custom-', ''), e)}
+                                      className="text-zinc-700 hover:text-red-400 transition-colors"
+                                      title="Remove from library"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
                                 )}
                               </div>
                             )
@@ -854,8 +908,49 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                       <p className="text-zinc-600 text-xs text-center py-2">No results found.</p>
                     )}
 
+                    {/* Edit custom food form */}
+                    {editingCustomFood && !selectedFood && !showManual && (
+                      <div className="rounded-xl p-3 space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(201,168,76,0.2)' }}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1.5">
+                            <Settings2 className="w-3.5 h-3.5" style={{ color: '#C9A84C' }} />
+                            <p className="text-white text-xs font-semibold uppercase tracking-wider">Edit saved food</p>
+                          </div>
+                          <button onClick={() => setEditingCustomFood(null)} className="text-zinc-600 hover:text-zinc-400"><X className="w-3.5 h-3.5" /></button>
+                        </div>
+                        <div className="space-y-2">
+                          <Input value={editCustomForm.name} onChange={e => setEditCustomForm(f => ({ ...f, name: e.target.value }))} placeholder="Food name *" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                          <Input value={editCustomForm.brand} onChange={e => setEditCustomForm(f => ({ ...f, brand: e.target.value }))} placeholder="Brand (optional)" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input type="number" value={editCustomForm.servingG} onChange={e => setEditCustomForm(f => ({ ...f, servingG: e.target.value }))} placeholder="Grams" className="w-20 bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                          <span className="text-zinc-500 text-xs">g</span>
+                          <Input value={editCustomForm.servingUnit} onChange={e => setEditCustomForm(f => ({ ...f, servingUnit: e.target.value }))} placeholder='Label, e.g. "1 tub"' className="flex-1 bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                        </div>
+                        <p className="text-zinc-500 text-xs font-medium">Macros for {editCustomForm.servingG || '?'}g:</p>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            { label: 'Calories', key: 'cal' as const },
+                            { label: 'Protein (g)', key: 'pro' as const },
+                            { label: 'Carbs (g)', key: 'carb' as const },
+                            { label: 'Fat (g)', key: 'fat' as const },
+                          ].map(({ label, key }) => (
+                            <div key={key}>
+                              <p className="text-zinc-600 text-xs mb-1">{label}</p>
+                              <Input type="number" value={editCustomForm[key]} onChange={e => setEditCustomForm(f => ({ ...f, [key]: e.target.value }))} placeholder="0" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                            </div>
+                          ))}
+                        </div>
+                        <button onClick={saveCustomFoodEdit} disabled={savingCustomEdit}
+                          className="w-full py-2 rounded-lg text-sm font-semibold text-black disabled:opacity-50"
+                          style={{ background: 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}>
+                          {savingCustomEdit ? 'Saving…' : 'Save changes'}
+                        </button>
+                      </div>
+                    )}
+
                     {/* Enter manually button */}
-                    {!selectedFood && !showManual && (
+                    {!selectedFood && !showManual && !editingCustomFood && (
                       <button
                         onClick={() => setShowManual(true)}
                         className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
@@ -865,7 +960,7 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                     )}
 
                     {/* Manual entry form */}
-                    {showManual && !selectedFood && (
+                    {showManual && !selectedFood && !editingCustomFood && (
                       <div className="rounded-xl p-3 space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                         <div className="flex items-center justify-between">
                           <p className="text-white text-xs font-semibold uppercase tracking-wider">Enter food manually</p>
