@@ -61,9 +61,8 @@ const STEPS = [
   { n: 1, text: 'Download MyNetDiary from the App Store or Google Play.' },
   { n: 2, text: "Create a free account. Skip the guided setup — you'll use your coach's targets instead." },
   { n: 3, text: 'Tap the + button to log a meal. Search for the food, pick the right item, and set your portion.' },
-  { n: 4, text: 'Do this for every meal throughout the day. Accuracy matters most for protein.' },
-  { n: 5, text: 'Check your daily totals at the bottom of the diary screen. Aim to hit the targets your coach set above.' },
-  { n: 6, text: "Don't stress about being exact — within ±10g on protein and ±50 kcal is close enough." },
+  { n: 4, text: 'Check your daily totals at the bottom of the diary screen. Aim to hit the targets your coach set above.' },
+  { n: 5, text: "Don't stress about being exact — within ±10g on protein and ±50 kcal is close enough." },
 ]
 
 export default function MacroTargetViewer({ clientId }: Props) {
