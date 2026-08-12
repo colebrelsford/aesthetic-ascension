@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Search, X, Loader2, UtensilsCrossed, BookMarked } from 'lucide-react'
+import { Plus, Trash2, Search, X, Loader2, UtensilsCrossed, BookMarked, Pencil, Check, MoveRight } from 'lucide-react'
 
 interface MealPlan {
   id: string
@@ -191,6 +191,12 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
   const [showManual, setShowManual] = useState(false)
   const [manual, setManual] = useState<ManualEntry>(EMPTY_MANUAL)
   const [savingCustom, setSavingCustom] = useState(false)
+  const [editingFood, setEditingFood] = useState<{ id: string, mealId: string, qty: string } | null>(null)
+  const [editingMealId, setEditingMealId] = useState<string | null>(null)
+  const [editingMealName, setEditingMealName] = useState('')
+  const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
+  const [editingPlanName, setEditingPlanName] = useState('')
+  const [movingFood, setMovingFood] = useState<{ food: MealPlanFood, fromMealId: string } | null>(null)
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const supabase = createClient()
 
@@ -457,6 +463,50 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
     setFoods(prev => ({ ...prev, [mealId]: prev[mealId].filter(f => f.id !== foodId) }))
   }
 
+  async function updateFoodQty(food: MealPlanFood, mealId: string, newQty: string) {
+    const grams = parseFloat(newQty)
+    if (!grams || grams <= 0 || !food.calories_per_100g) { setEditingFood(null); return }
+    const update = {
+      quantity: Math.round(grams),
+      calories: calcMacro(food.calories_per_100g, grams),
+      protein_g: calcMacro(food.protein_per_100g ?? 0, grams),
+      carbs_g: calcMacro(food.carbs_per_100g ?? 0, grams),
+      fat_g: calcMacro(food.fat_per_100g ?? 0, grams),
+    }
+    await supabase.from('meal_plan_foods').update(update).eq('id', food.id)
+    setFoods(prev => ({ ...prev, [mealId]: prev[mealId].map(f => f.id === food.id ? { ...f, ...update } : f) }))
+    setEditingFood(null)
+  }
+
+  async function renameMeal(mealId: string, name: string) {
+    const trimmed = name.trim()
+    setEditingMealId(null)
+    if (!trimmed) return
+    await supabase.from('meal_plan_meals').update({ name: trimmed }).eq('id', mealId)
+    setMeals(prev => prev.map(m => m.id === mealId ? { ...m, name: trimmed } : m))
+  }
+
+  async function renamePlan(planId: string, name: string) {
+    const trimmed = name.trim()
+    setEditingPlanId(null)
+    if (!trimmed) return
+    await supabase.from('meal_plan_plans').update({ name: trimmed }).eq('id', planId)
+    setPlans(prev => prev.map(p => p.id === planId ? { ...p, name: trimmed } : p))
+  }
+
+  async function moveFood(food: MealPlanFood, fromMealId: string, toMealId: string) {
+    if (fromMealId === toMealId) { setMovingFood(null); return }
+    const newOrder = (foods[toMealId] || []).length
+    await supabase.from('meal_plan_foods').update({ meal_id: toMealId, display_order: newOrder }).eq('id', food.id)
+    setFoods(prev => ({
+      ...prev,
+      [fromMealId]: prev[fromMealId].filter(f => f.id !== food.id),
+      [toMealId]: [...(prev[toMealId] || []), { ...food, meal_id: toMealId }],
+    }))
+    setMovingFood(null)
+    toast.success(`Moved to ${meals.find(m => m.id === toMealId)?.name}`)
+  }
+
   const allFoods = Object.values(foods).flat()
   const daily = {
     cal: Math.round(allFoods.reduce((s, f) => s + f.calories, 0)),
@@ -500,17 +550,33 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
       <div className="flex items-center gap-2 flex-wrap">
         {plans.map(plan => (
           <div key={plan.id} className="flex items-center gap-1">
-            <button
-              onClick={() => setSelectedPlanId(plan.id)}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
-              style={selectedPlanId === plan.id
-                ? { background: 'linear-gradient(135deg, #C9A84C, #E8C97A)', color: '#000' }
-                : { background: '#111', border: '1px solid rgba(255,255,255,0.08)', color: '#888' }
-              }
-            >
-              {plan.name}
-            </button>
-            {selectedPlanId === plan.id && plans.length > 1 && (
+            {editingPlanId === plan.id ? (
+              <div className="flex items-center gap-1">
+                <Input
+                  value={editingPlanName}
+                  onChange={e => setEditingPlanName(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') renamePlan(plan.id, editingPlanName); if (e.key === 'Escape') setEditingPlanId(null) }}
+                  className="bg-zinc-900 border-zinc-700 text-white text-sm h-8 w-36"
+                  autoFocus
+                />
+                <button onClick={() => renamePlan(plan.id, editingPlanName)} className="text-zinc-400 hover:text-white p-1"><Check className="w-3.5 h-3.5" /></button>
+                <button onClick={() => setEditingPlanId(null)} className="text-zinc-600 hover:text-zinc-400 p-1"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setSelectedPlanId(plan.id)}
+                onDoubleClick={() => { setEditingPlanId(plan.id); setEditingPlanName(plan.name) }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+                style={selectedPlanId === plan.id
+                  ? { background: 'linear-gradient(135deg, #C9A84C, #E8C97A)', color: '#000' }
+                  : { background: '#111', border: '1px solid rgba(255,255,255,0.08)', color: '#888' }
+                }
+                title="Double-click to rename"
+              >
+                {plan.name}
+              </button>
+            )}
+            {selectedPlanId === plan.id && plans.length > 1 && editingPlanId !== plan.id && (
               <button onClick={() => deletePlan(plan.id)} className="text-zinc-700 hover:text-red-400 transition-colors p-1" title="Delete plan">
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -592,8 +658,29 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
               <div key={meal.id} className="rounded-2xl overflow-hidden" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: mealFoods.length > 0 || isOpen ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                   <div className="flex items-center gap-3 min-w-0">
-                    <span className="font-semibold text-white text-sm shrink-0">{meal.name}</span>
-                    {mealFoods.length > 0 && (
+                    {editingMealId === meal.id ? (
+                      <div className="flex items-center gap-1">
+                        <Input
+                          value={editingMealName}
+                          onChange={e => setEditingMealName(e.target.value)}
+                          onKeyDown={e => { if (e.key === 'Enter') renameMeal(meal.id, editingMealName); if (e.key === 'Escape') setEditingMealId(null) }}
+                          className="bg-zinc-800 border-zinc-700 text-white text-sm h-7 w-36"
+                          autoFocus
+                        />
+                        <button onClick={() => renameMeal(meal.id, editingMealName)} className="text-zinc-400 hover:text-white p-0.5"><Check className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => setEditingMealId(null)} className="text-zinc-600 hover:text-zinc-400 p-0.5"><X className="w-3.5 h-3.5" /></button>
+                      </div>
+                    ) : (
+                      <button
+                        className="font-semibold text-white text-sm shrink-0 flex items-center gap-1.5 hover:text-zinc-300 transition-colors group"
+                        onClick={() => { setEditingMealId(meal.id); setEditingMealName(meal.name) }}
+                        title="Click to rename"
+                      >
+                        {meal.name}
+                        <Pencil className="w-3 h-3 text-zinc-700 group-hover:text-zinc-500 transition-colors" />
+                      </button>
+                    )}
+                    {mealFoods.length > 0 && editingMealId !== meal.id && (
                       <span className="text-zinc-600 text-xs truncate">
                         {mealCal} kcal · {mealPro}g P · {mealCarb}g C · {mealFat}g F
                       </span>
@@ -617,26 +704,85 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                   </div>
                 </div>
 
-                {mealFoods.map(food => (
-                  <div key={food.id} className="flex items-center gap-3 px-4 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-zinc-200 text-sm font-medium truncate">{food.food_name}</p>
-                      <p className="text-zinc-600 text-xs">
-                        {food.brand_name && <span className="mr-1">{food.brand_name} ·</span>}
-                        {food.quantity}g
-                      </p>
+                {mealFoods.map(food => {
+                  const isEditingThisFood = editingFood?.id === food.id
+                  const isMovingThisFood = movingFood?.food.id === food.id
+                  return (
+                    <div key={food.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div className="flex items-center gap-3 px-4 py-2.5">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-zinc-200 text-sm font-medium truncate">{food.food_name}</p>
+                          {isEditingThisFood ? (
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <Input
+                                type="number"
+                                value={editingFood.qty}
+                                onChange={e => setEditingFood(f => f ? { ...f, qty: e.target.value } : f)}
+                                onKeyDown={e => { if (e.key === 'Enter') updateFoodQty(food, meal.id, editingFood.qty); if (e.key === 'Escape') setEditingFood(null) }}
+                                className="w-20 bg-zinc-800 border-zinc-700 text-white text-xs h-7"
+                                autoFocus
+                                min="1"
+                              />
+                              <span className="text-zinc-600 text-xs">g</span>
+                              <button onClick={() => updateFoodQty(food, meal.id, editingFood.qty)} className="text-zinc-400 hover:text-white p-0.5"><Check className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => setEditingFood(null)} className="text-zinc-600 hover:text-zinc-400 p-0.5"><X className="w-3.5 h-3.5" /></button>
+                            </div>
+                          ) : (
+                            <button
+                              className="flex items-center gap-1 text-zinc-600 text-xs hover:text-zinc-400 transition-colors group mt-0.5"
+                              onClick={() => setEditingFood({ id: food.id, mealId: meal.id, qty: String(food.quantity) })}
+                              title="Click to edit quantity"
+                            >
+                              {food.brand_name && <span>{food.brand_name} · </span>}
+                              <span>{food.quantity}g</span>
+                              <Pencil className="w-2.5 h-2.5 opacity-0 group-hover:opacity-100 transition-opacity" />
+                            </button>
+                          )}
+                        </div>
+                        {!isEditingThisFood && (
+                          <div className="flex items-center gap-3 text-xs shrink-0">
+                            <span className="text-zinc-300 font-semibold">{food.calories} kcal</span>
+                            <span className="text-blue-400">{food.protein_g}g P</span>
+                            <span className="text-green-400">{food.carbs_g}g C</span>
+                            <span className="text-red-400">{food.fat_g}g F</span>
+                          </div>
+                        )}
+                        {!isEditingThisFood && (
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            {meals.length > 1 && (
+                              <button
+                                onClick={() => setMovingFood(isMovingThisFood ? null : { food, fromMealId: meal.id })}
+                                className="text-zinc-700 hover:text-zinc-400 transition-colors p-1"
+                                title="Move to another meal"
+                              >
+                                <MoveRight className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button onClick={() => deleteFood(meal.id, food.id)} className="text-zinc-700 hover:text-red-400 transition-colors p-1">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                      {isMovingThisFood && (
+                        <div className="px-4 pb-2.5 flex items-center gap-2 flex-wrap">
+                          <span className="text-zinc-600 text-xs">Move to:</span>
+                          {meals.filter(m => m.id !== meal.id).map(m => (
+                            <button
+                              key={m.id}
+                              onClick={() => moveFood(food, meal.id, m.id)}
+                              className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                              style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.2)', color: '#C9A84C' }}
+                            >
+                              {m.name}
+                            </button>
+                          ))}
+                          <button onClick={() => setMovingFood(null)} className="text-zinc-600 text-xs hover:text-zinc-400">cancel</button>
+                        </div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-3 text-xs shrink-0">
-                      <span className="text-zinc-300 font-semibold">{food.calories} kcal</span>
-                      <span className="text-blue-400">{food.protein_g}g P</span>
-                      <span className="text-green-400">{food.carbs_g}g C</span>
-                      <span className="text-red-400">{food.fat_g}g F</span>
-                    </div>
-                    <button onClick={() => deleteFood(meal.id, food.id)} className="text-zinc-700 hover:text-red-400 transition-colors shrink-0 p-1">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
+                  )
+                })}
 
                 {isOpen && (
                   <div className="p-4 space-y-3" style={{ background: 'rgba(0,0,0,0.25)' }}>
