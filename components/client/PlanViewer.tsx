@@ -22,7 +22,10 @@ export default function PlanViewer({ plan, clientId }: Props) {
             </div>
             <h3 className="font-semibold text-white text-sm">Plan Notes</h3>
           </div>
-          <p className="text-zinc-400 text-sm leading-relaxed whitespace-pre-wrap">{plan.training_split}</p>
+          <div
+            className="text-zinc-400 text-sm leading-relaxed plan-notes-html"
+            dangerouslySetInnerHTML={{ __html: plan.training_split }}
+          />
         </div>
       )}
 
@@ -34,7 +37,10 @@ export default function PlanViewer({ plan, clientId }: Props) {
             </div>
             <h3 className="font-semibold text-white text-sm">Supplement Protocol</h3>
           </div>
-          <p className="text-zinc-400 text-sm leading-relaxed whitespace-pre-wrap">{plan.supplement_protocol}</p>
+          <div
+            className="text-zinc-400 text-sm leading-relaxed plan-notes-html"
+            dangerouslySetInnerHTML={{ __html: plan.supplement_protocol }}
+          />
         </div>
       )}
     </div>

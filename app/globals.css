@@ -213,3 +213,7 @@ textarea:focus-visible {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(201, 168, 76, 0.4);
 }
+
+.plan-notes-html p { margin-bottom: 0.5rem; }
+.plan-notes-html p:last-child { margin-bottom: 0; }
+.plan-notes-html br { display: block; content: ''; }
