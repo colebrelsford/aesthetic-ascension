@@ -12,8 +12,8 @@ import CheckinHistory from './CheckinHistory'
 import WorkoutTracker from './WorkoutTracker'
 import MeasurementsLogger from './MeasurementsLogger'
 import ClientSettings from './PasswordChange'
-import MacroTargets from './MacroTargets'
 import MacroTargetViewer from './MacroTargetViewer'
+import MacroSummary from './MacroSummary'
 import ProfilePhotoUpload from './ProfilePhotoUpload'
 import HomeScreenPrompt from './HomeScreenPrompt'
 import CheckinStreak from './CheckinStreak'
@@ -123,7 +123,7 @@ export default function ClientDashboard({ profile }: Props) {
               notificationsEnabled={notifPermission === 'granted'}
             />
             <CheckinStreak clientId={profile.id} />
-            <MacroTargets plan={plan} />
+            <MacroSummary clientId={profile.id} />
             <WeightLogger clientId={profile.id} onLogged={onWeightLogged} />
             <WeightChart
               logs={weightLogs}
