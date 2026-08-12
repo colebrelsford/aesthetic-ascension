@@ -50,6 +50,7 @@ export default function MacroTargets({ plan }: Props) {
           {plan.cardio_notes && (
             <p className="text-[#888] text-xs mt-2">{plan.cardio_notes}</p>
           )}
+          <p className="text-zinc-600 text-xs mt-2">Keep heart rate between 125–140 BPM.</p>
         </div>
       )}
     </div>
