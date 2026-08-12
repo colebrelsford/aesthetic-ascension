@@ -8,6 +8,20 @@ import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import { Save, Timer } from 'lucide-react'
 
+function htmlToText(html: string | null | undefined): string {
+  if (!html) return ''
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
 interface Props {
   clientId: string
   plan: Plan | null
@@ -15,8 +29,8 @@ interface Props {
 }
 
 export default function PlanEditor({ clientId, plan, onSaved }: Props) {
-  const [notes, setNotes] = useState(plan?.training_split || '')
-  const [supplements, setSupplements] = useState(plan?.supplement_protocol || '')
+  const [notes, setNotes] = useState(htmlToText(plan?.training_split))
+  const [supplements, setSupplements] = useState(htmlToText(plan?.supplement_protocol))
   const [cardioType, setCardioType] = useState(plan?.cardio_type || '')
   const [cardioDuration, setCardioDuration] = useState(plan?.cardio_duration_min?.toString() || '')
   const [cardioSessions, setCardioSessions] = useState(plan?.cardio_sessions_per_week?.toString() || '')
