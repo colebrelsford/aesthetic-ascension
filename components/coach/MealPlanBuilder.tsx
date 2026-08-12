@@ -196,7 +196,7 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
   const [editingCustomFood, setEditingCustomFood] = useState<CustomFood | null>(null)
   const [editCustomForm, setEditCustomForm] = useState({ name: '', brand: '', cal: '', pro: '', carb: '', fat: '', servingG: '', servingUnit: '' })
   const [savingCustomEdit, setSavingCustomEdit] = useState(false)
-  const [editingFood, setEditingFood] = useState<{ id: string, mealId: string, qty: string } | null>(null)
+  const [editingFood, setEditingFood] = useState<{ id: string, mealId: string, qty: string, displayQty: string, displayUnit: string } | null>(null)
   const [editingMealId, setEditingMealId] = useState<string | null>(null)
   const [editingMealName, setEditingMealName] = useState('')
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
@@ -511,15 +511,19 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
     setFoods(prev => ({ ...prev, [mealId]: prev[mealId].filter(f => f.id !== foodId) }))
   }
 
-  async function updateFoodQty(food: MealPlanFood, mealId: string, newQty: string) {
+  async function updateFoodQty(food: MealPlanFood, mealId: string, newQty: string, displayQty: string, displayUnit: string) {
     const grams = parseFloat(newQty)
     if (!grams || grams <= 0 || !food.calories_per_100g) { setEditingFood(null); return }
+    const dQty = displayQty.trim() ? parseFloat(displayQty) : null
+    const dUnit = displayUnit.trim() || null
     const update = {
       quantity: Math.round(grams),
       calories: calcMacro(food.calories_per_100g, grams),
       protein_g: calcMacro(food.protein_per_100g ?? 0, grams),
       carbs_g: calcMacro(food.carbs_per_100g ?? 0, grams),
       fat_g: calcMacro(food.fat_per_100g ?? 0, grams),
+      display_qty: dQty,
+      display_unit: dUnit,
     }
     await supabase.from('meal_plan_foods').update(update).eq('id', food.id)
     setFoods(prev => ({ ...prev, [mealId]: prev[mealId].map(f => f.id === food.id ? { ...f, ...update } : f) }))
@@ -779,24 +783,45 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                         <div className="flex-1 min-w-0">
                           <p className="text-zinc-200 text-sm font-medium truncate">{food.food_name}</p>
                           {isEditingThisFood ? (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <Input
-                                type="number"
-                                value={editingFood.qty}
-                                onChange={e => setEditingFood(f => f ? { ...f, qty: e.target.value } : f)}
-                                onKeyDown={e => { if (e.key === 'Enter') updateFoodQty(food, meal.id, editingFood.qty); if (e.key === 'Escape') setEditingFood(null) }}
-                                className="w-20 bg-zinc-800 border-zinc-700 text-white text-xs h-7"
-                                autoFocus
-                                min="1"
-                              />
-                              <span className="text-zinc-600 text-xs">g</span>
-                              <button onClick={() => updateFoodQty(food, meal.id, editingFood.qty)} className="text-zinc-400 hover:text-white p-0.5"><Check className="w-3.5 h-3.5" /></button>
-                              <button onClick={() => setEditingFood(null)} className="text-zinc-600 hover:text-zinc-400 p-0.5"><X className="w-3.5 h-3.5" /></button>
+                            <div className="mt-1 space-y-1.5">
+                              <div className="flex items-center gap-1.5">
+                                <Input
+                                  type="number"
+                                  value={editingFood.qty}
+                                  onChange={e => setEditingFood(f => f ? { ...f, qty: e.target.value } : f)}
+                                  onKeyDown={e => { if (e.key === 'Escape') setEditingFood(null) }}
+                                  className="w-20 bg-zinc-800 border-zinc-700 text-white text-xs h-7"
+                                  autoFocus
+                                  min="1"
+                                />
+                                <span className="text-zinc-600 text-xs">g</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-zinc-600 text-xs w-14 shrink-0">Display as</span>
+                                <Input
+                                  type="number"
+                                  value={editingFood.displayQty}
+                                  onChange={e => setEditingFood(f => f ? { ...f, displayQty: e.target.value } : f)}
+                                  placeholder="2"
+                                  className="w-12 bg-zinc-800 border-zinc-700 text-white text-xs h-7"
+                                  min="0"
+                                />
+                                <Input
+                                  type="text"
+                                  value={editingFood.displayUnit}
+                                  onChange={e => setEditingFood(f => f ? { ...f, displayUnit: e.target.value } : f)}
+                                  onKeyDown={e => { if (e.key === 'Enter') updateFoodQty(food, meal.id, editingFood.qty, editingFood.displayQty, editingFood.displayUnit); if (e.key === 'Escape') setEditingFood(null) }}
+                                  placeholder="eggs"
+                                  className="w-20 bg-zinc-800 border-zinc-700 text-white text-xs h-7"
+                                />
+                                <button onClick={() => updateFoodQty(food, meal.id, editingFood.qty, editingFood.displayQty, editingFood.displayUnit)} className="text-zinc-400 hover:text-white p-0.5"><Check className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setEditingFood(null)} className="text-zinc-600 hover:text-zinc-400 p-0.5"><X className="w-3.5 h-3.5" /></button>
+                              </div>
                             </div>
                           ) : (
                             <button
                               className="flex items-center gap-1.5 hover:text-zinc-300 transition-colors group mt-0.5"
-                              onClick={() => setEditingFood({ id: food.id, mealId: meal.id, qty: String(food.quantity) })}
+                              onClick={() => setEditingFood({ id: food.id, mealId: meal.id, qty: String(food.quantity), displayQty: food.display_qty != null ? String(food.display_qty) : '', displayUnit: food.display_unit ?? '' })}
                               title="Click to edit quantity"
                             >
                               {food.brand_name && <span className="text-zinc-500 text-xs">{food.brand_name} · </span>}
