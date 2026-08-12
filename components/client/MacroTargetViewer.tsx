@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Flame, Smartphone } from 'lucide-react'
+import TrackingTips from './TrackingTips'
 
 interface MacroTarget {
   id: string
@@ -158,6 +159,8 @@ export default function MacroTargetViewer({ clientId }: Props) {
           </div>
         )}
       </div>
+
+      <TrackingTips />
 
       {/* How to track */}
       <div className="rounded-2xl p-5 space-y-4" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)' }}>

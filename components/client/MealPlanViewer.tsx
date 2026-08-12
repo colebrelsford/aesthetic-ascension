@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { UtensilsCrossed } from 'lucide-react'
+import TrackingTips from './TrackingTips'
 
 interface MealPlan {
   id: string
@@ -182,6 +183,8 @@ export default function MealPlanViewer({ clientId }: Props) {
       {meals.length === 0 && (
         <p className="text-zinc-700 text-sm text-center py-4">No meals in this plan yet.</p>
       )}
+
+      <TrackingTips />
     </div>
   )
 }
