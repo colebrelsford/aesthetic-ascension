@@ -200,6 +200,14 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
     if (data) setCustomFoods(data)
   }
 
+  async function deleteCustomFood(id: string, e: React.MouseEvent) {
+    e.stopPropagation()
+    if (!confirm('Remove this food from your library?')) return
+    await supabase.from('custom_foods').delete().eq('id', id)
+    setCustomFoods(prev => prev.filter(f => f.id !== id))
+    toast.success('Removed from library')
+  }
+
   async function saveCustomFood() {
     const grams = parseFloat(manual.forGrams)
     if (!manual.name.trim()) { toast.error('Food name is required'); return }
@@ -243,10 +251,6 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
     toast.success(`"${data.name}" saved to your food library`)
   }
 
-  async function deleteCustomFood(id: string) {
-    await supabase.from('custom_foods').delete().eq('id', id)
-    setCustomFoods(prev => prev.filter(f => f.id !== id))
-  }
 
   async function loadPlans() {
     const { data } = await supabase
@@ -639,13 +643,15 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                             const carbPerServing = r.servingSize ? calcMacro(r.carb100, r.servingSize) : null
                             const fatPerServing = r.servingSize ? calcMacro(r.fat100, r.servingSize) : null
                             return (
-                              <button
+                              <div
                                 key={r.id}
-                                onClick={() => { setSelectedFood(r); setUseServings(!!r.servingSize); setQuantity(r.servingSize ? '1' : '100') }}
-                                className="w-full flex items-start justify-between px-3 py-3 hover:bg-zinc-800 transition-colors text-left gap-3"
+                                className="w-full flex items-start justify-between px-3 py-3 hover:bg-zinc-800 transition-colors gap-3"
                                 style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}
                               >
-                                <div className="min-w-0 flex-1">
+                                <button
+                                  onClick={() => { setSelectedFood(r); setUseServings(!!r.servingSize); setQuantity(r.servingSize ? '1' : '100') }}
+                                  className="flex-1 text-left min-w-0"
+                                >
                                   <div className="flex items-center gap-2">
                                     <p className="text-zinc-200 text-sm font-medium truncate">{r.name}</p>
                                     {r.isCustom && (
@@ -664,8 +670,17 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                                       {r.cal100} kcal · {r.pro100}g P · {r.carb100}g C · {r.fat100}g F per 100g
                                     </span>
                                   </div>
-                                </div>
-                              </button>
+                                </button>
+                                {r.isCustom && (
+                                  <button
+                                    onClick={e => deleteCustomFood(r.id.replace('custom-', ''), e)}
+                                    className="shrink-0 text-zinc-700 hover:text-red-400 transition-colors mt-0.5"
+                                    title="Remove from library"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
                             )
                           })}
                         </div>
