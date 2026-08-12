@@ -1,6 +1,6 @@
 'use client'
 
-import { Scale, Flame, Droplets, ShoppingCart, Clock, CheckCircle2 } from 'lucide-react'
+import { Scale, Flame, Droplets, ShoppingCart, CheckCircle2 } from 'lucide-react'
 
 const TIPS = [
   {
@@ -20,18 +20,13 @@ const TIPS = [
   },
   {
     icon: Droplets,
-    title: 'Cooking oils add up fast',
-    body: 'A tablespoon of olive oil is ~120 calories and 14g fat. Always weigh cooking oil — it\'s one of the easiest ways to unknowingly eat 200+ extra calories a day.',
+    title: 'Use 0-calorie cooking spray',
+    body: 'Swap cooking oils for a 0-calorie cooking spray (like PAM or any store brand). A tablespoon of olive oil is ~120 calories — those add up fast and aren\'t worth the hit to your macros.',
   },
   {
     icon: ShoppingCart,
     title: 'Use the barcode scanner',
     body: 'For packaged foods, scan the barcode in MyNetDiary instead of searching manually. It pulls the exact product with the correct serving size and macros.',
-  },
-  {
-    icon: Clock,
-    title: 'Consistency beats perfection',
-    body: 'You don\'t need to be exact every single day — within ±10g protein and ±50 calories is perfectly fine. What matters is consistent effort over weeks, not a perfect log every day.',
   },
 ]
 
