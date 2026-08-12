@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Search, X, Loader2, UtensilsCrossed, BookMarked, Pencil, Check, MoveRight } from 'lucide-react'
+import { Plus, Trash2, Search, X, Loader2, UtensilsCrossed, BookMarked, Pencil, Check } from 'lucide-react'
 
 interface MealPlan {
   id: string
@@ -83,7 +83,7 @@ interface Props {
   coachId: string
 }
 
-const DEFAULT_MEALS = ['Breakfast', 'Lunch', 'Dinner', 'Snacks']
+const DEFAULT_MEALS = ['Meal 1', 'Meal 2', 'Meal 3', 'Meal 4']
 
 function round1(n: number) { return Math.round(n * 10) / 10 }
 function calcMacro(per100: number, qty: number) { return round1((per100 * qty) / 100) }
@@ -196,7 +196,8 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
   const [editingMealName, setEditingMealName] = useState('')
   const [editingPlanId, setEditingPlanId] = useState<string | null>(null)
   const [editingPlanName, setEditingPlanName] = useState('')
-  const [movingFood, setMovingFood] = useState<{ food: MealPlanFood, fromMealId: string } | null>(null)
+  const [dragOverMealId, setDragOverMealId] = useState<string | null>(null)
+  const dragFoodRef = useRef<{ food: MealPlanFood, fromMealId: string } | null>(null)
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const supabase = createClient()
 
@@ -494,8 +495,12 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
     setPlans(prev => prev.map(p => p.id === planId ? { ...p, name: trimmed } : p))
   }
 
-  async function moveFood(food: MealPlanFood, fromMealId: string, toMealId: string) {
-    if (fromMealId === toMealId) { setMovingFood(null); return }
+  async function dropFoodOnMeal(toMealId: string) {
+    const drag = dragFoodRef.current
+    setDragOverMealId(null)
+    dragFoodRef.current = null
+    if (!drag || drag.fromMealId === toMealId) return
+    const { food, fromMealId } = drag
     const newOrder = (foods[toMealId] || []).length
     await supabase.from('meal_plan_foods').update({ meal_id: toMealId, display_order: newOrder }).eq('id', food.id)
     setFoods(prev => ({
@@ -503,7 +508,6 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
       [fromMealId]: prev[fromMealId].filter(f => f.id !== food.id),
       [toMealId]: [...(prev[toMealId] || []), { ...food, meal_id: toMealId }],
     }))
-    setMovingFood(null)
     toast.success(`Moved to ${meals.find(m => m.id === toMealId)?.name}`)
   }
 
@@ -655,7 +659,17 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
             const isOpen = addingFoodTo === meal.id
 
             return (
-              <div key={meal.id} className="rounded-2xl overflow-hidden" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <div
+                key={meal.id}
+                className="rounded-2xl overflow-hidden transition-all"
+                style={{
+                  background: '#111',
+                  border: dragOverMealId === meal.id ? '1px solid rgba(201,168,76,0.5)' : '1px solid rgba(255,255,255,0.07)',
+                }}
+                onDragOver={e => { e.preventDefault(); setDragOverMealId(meal.id) }}
+                onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverMealId(null) }}
+                onDrop={() => dropFoodOnMeal(meal.id)}
+              >
                 <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: mealFoods.length > 0 || isOpen ? '1px solid rgba(255,255,255,0.05)' : 'none' }}>
                   <div className="flex items-center gap-3 min-w-0">
                     {editingMealId === meal.id ? (
@@ -706,9 +720,14 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
 
                 {mealFoods.map(food => {
                   const isEditingThisFood = editingFood?.id === food.id
-                  const isMovingThisFood = movingFood?.food.id === food.id
                   return (
-                    <div key={food.id} style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div
+                      key={food.id}
+                      draggable={!isEditingThisFood && meals.length > 1}
+                      onDragStart={() => { dragFoodRef.current = { food, fromMealId: meal.id } }}
+                      onDragEnd={() => { dragFoodRef.current = null; setDragOverMealId(null) }}
+                      style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', cursor: meals.length > 1 ? 'grab' : 'default' }}
+                    >
                       <div className="flex items-center gap-3 px-4 py-2.5">
                         <div className="flex-1 min-w-0">
                           <p className="text-zinc-200 text-sm font-medium truncate">{food.food_name}</p>
@@ -748,38 +767,11 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                           </div>
                         )}
                         {!isEditingThisFood && (
-                          <div className="flex items-center gap-0.5 shrink-0">
-                            {meals.length > 1 && (
-                              <button
-                                onClick={() => setMovingFood(isMovingThisFood ? null : { food, fromMealId: meal.id })}
-                                className="text-zinc-700 hover:text-zinc-400 transition-colors p-1"
-                                title="Move to another meal"
-                              >
-                                <MoveRight className="w-3.5 h-3.5" />
-                              </button>
-                            )}
-                            <button onClick={() => deleteFood(meal.id, food.id)} className="text-zinc-700 hover:text-red-400 transition-colors p-1">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          <button onClick={() => deleteFood(meal.id, food.id)} className="text-zinc-700 hover:text-red-400 transition-colors p-1 shrink-0">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
                         )}
                       </div>
-                      {isMovingThisFood && (
-                        <div className="px-4 pb-2.5 flex items-center gap-2 flex-wrap">
-                          <span className="text-zinc-600 text-xs">Move to:</span>
-                          {meals.filter(m => m.id !== meal.id).map(m => (
-                            <button
-                              key={m.id}
-                              onClick={() => moveFood(food, meal.id, m.id)}
-                              className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                              style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.2)', color: '#C9A84C' }}
-                            >
-                              {m.name}
-                            </button>
-                          ))}
-                          <button onClick={() => setMovingFood(null)} className="text-zinc-600 text-xs hover:text-zinc-400">cancel</button>
-                        </div>
-                      )}
                     </div>
                   )
                 })}
