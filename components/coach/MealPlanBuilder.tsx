@@ -66,15 +66,15 @@ interface CustomFood {
 interface ManualEntry {
   name: string
   brand: string
-  cal100: string
-  pro100: string
-  carb100: string
-  fat100: string
-  servingG: string
-  servingUnit: string
+  forGrams: string   // the gram amount from the label (e.g. 250)
+  cal: string        // calories for that gram amount
+  pro: string
+  carb: string
+  fat: string
+  servingUnit: string  // label name e.g. "1 tub", "1 slice"
 }
 
-const EMPTY_MANUAL: ManualEntry = { name: '', brand: '', cal100: '', pro100: '', carb100: '', fat100: '', servingG: '', servingUnit: '' }
+const EMPTY_MANUAL: ManualEntry = { name: '', brand: '', forGrams: '', cal: '', pro: '', carb: '', fat: '', servingUnit: '' }
 
 interface Props {
   clientId: string
@@ -201,18 +201,23 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
   }
 
   async function saveCustomFood() {
-    if (!manual.name.trim() || !manual.cal100) { toast.error('Name and calories are required'); return }
+    const grams = parseFloat(manual.forGrams)
+    if (!manual.name.trim()) { toast.error('Food name is required'); return }
+    if (!grams || grams <= 0) { toast.error('Enter the gram amount from the label'); return }
+    if (!manual.cal) { toast.error('Calories are required'); return }
     setSavingCustom(true)
+    // Calculate per-100g from whatever gram amount they entered
+    const factor = 100 / grams
     const row = {
       coach_id: coachId,
       name: manual.name.trim(),
       brand_name: manual.brand.trim() || null,
-      calories_per_100g: parseFloat(manual.cal100) || 0,
-      protein_per_100g: parseFloat(manual.pro100) || 0,
-      carbs_per_100g: parseFloat(manual.carb100) || 0,
-      fat_per_100g: parseFloat(manual.fat100) || 0,
-      serving_size_g: manual.servingG ? parseFloat(manual.servingG) : null,
-      serving_unit: manual.servingUnit.trim() || null,
+      calories_per_100g: round1((parseFloat(manual.cal) || 0) * factor),
+      protein_per_100g: round1((parseFloat(manual.pro) || 0) * factor),
+      carbs_per_100g: round1((parseFloat(manual.carb) || 0) * factor),
+      fat_per_100g: round1((parseFloat(manual.fat) || 0) * factor),
+      serving_size_g: grams,
+      serving_unit: manual.servingUnit.trim() || `${grams}g serving`,
     }
     const { data, error } = await supabase.from('custom_foods').insert(row).select().single()
     setSavingCustom(false)
@@ -685,48 +690,79 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                     {showManual && !selectedFood && (
                       <div className="rounded-xl p-3 space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                         <div className="flex items-center justify-between">
-                          <p className="text-white text-xs font-semibold uppercase tracking-wider">Manual Entry</p>
+                          <p className="text-white text-xs font-semibold uppercase tracking-wider">Enter food manually</p>
                           <button onClick={() => { setShowManual(false); setManual(EMPTY_MANUAL) }} className="text-zinc-600 hover:text-zinc-400"><X className="w-3.5 h-3.5" /></button>
                         </div>
-                        <p className="text-zinc-600 text-xs">Enter macros per 100g from the nutrition label. This will be saved to your food library for reuse.</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div className="col-span-2">
-                            <Input value={manual.name} onChange={e => setManual(p => ({ ...p, name: e.target.value }))} placeholder="Food name *" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
-                          </div>
-                          <div className="col-span-2">
-                            <Input value={manual.brand} onChange={e => setManual(p => ({ ...p, brand: e.target.value }))} placeholder="Brand (optional)" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                        <p className="text-zinc-500 text-xs leading-relaxed">
+                          Read the nutrition label — enter the macros for however many grams it shows. The app calculates the rest automatically.
+                        </p>
+
+                        {/* Name + Brand */}
+                        <div className="space-y-2">
+                          <Input value={manual.name} onChange={e => setManual(p => ({ ...p, name: e.target.value }))} placeholder="Food name *  (e.g. Chobani Zero Sugar Vanilla)" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                          <Input value={manual.brand} onChange={e => setManual(p => ({ ...p, brand: e.target.value }))} placeholder="Brand (optional)" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+                        </div>
+
+                        {/* Gram amount from label */}
+                        <div>
+                          <p className="text-zinc-400 text-xs mb-1.5 font-medium">Serving size on the label</p>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="number"
+                              value={manual.forGrams}
+                              onChange={e => setManual(p => ({ ...p, forGrams: e.target.value }))}
+                              placeholder="e.g. 250"
+                              className="w-24 bg-zinc-900 border-zinc-800 text-white text-xs h-8"
+                            />
+                            <span className="text-zinc-500 text-xs">grams</span>
+                            <Input
+                              value={manual.servingUnit}
+                              onChange={e => setManual(p => ({ ...p, servingUnit: e.target.value }))}
+                              placeholder='Label name, e.g. "1 tub" or "1 slice"'
+                              className="flex-1 bg-zinc-900 border-zinc-800 text-white text-xs h-8"
+                            />
                           </div>
                         </div>
-                        <p className="text-zinc-600 text-xs font-medium">Per 100g:</p>
-                        <div className="grid grid-cols-4 gap-2">
-                          <div>
-                            <p className="text-zinc-600 text-xs mb-1">Calories *</p>
-                            <Input type="number" value={manual.cal100} onChange={e => setManual(p => ({ ...p, cal100: e.target.value }))} placeholder="0" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
-                          </div>
-                          <div>
-                            <p className="text-zinc-600 text-xs mb-1">Protein (g)</p>
-                            <Input type="number" value={manual.pro100} onChange={e => setManual(p => ({ ...p, pro100: e.target.value }))} placeholder="0" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
-                          </div>
-                          <div>
-                            <p className="text-zinc-600 text-xs mb-1">Carbs (g)</p>
-                            <Input type="number" value={manual.carb100} onChange={e => setManual(p => ({ ...p, carb100: e.target.value }))} placeholder="0" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
-                          </div>
-                          <div>
-                            <p className="text-zinc-600 text-xs mb-1">Fat (g)</p>
-                            <Input type="number" value={manual.fat100} onChange={e => setManual(p => ({ ...p, fat100: e.target.value }))} placeholder="0" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
-                          </div>
-                        </div>
-                        <p className="text-zinc-600 text-xs font-medium">Serving size (optional):</p>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <p className="text-zinc-600 text-xs mb-1">Grams per serving</p>
-                            <Input type="number" value={manual.servingG} onChange={e => setManual(p => ({ ...p, servingG: e.target.value }))} placeholder="e.g. 28" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
-                          </div>
-                          <div>
-                            <p className="text-zinc-600 text-xs mb-1">Serving label</p>
-                            <Input value={manual.servingUnit} onChange={e => setManual(p => ({ ...p, servingUnit: e.target.value }))} placeholder="e.g. 1 slice" className="bg-zinc-900 border-zinc-800 text-white text-xs h-8" />
+
+                        {/* Macros for that amount */}
+                        <div>
+                          <p className="text-zinc-400 text-xs mb-1.5 font-medium">
+                            Macros for {manual.forGrams ? `${manual.forGrams}g` : 'that amount'}
+                          </p>
+                          <div className="grid grid-cols-4 gap-2">
+                            {[
+                              { label: 'Calories', key: 'cal' as const, placeholder: '0' },
+                              { label: 'Protein (g)', key: 'pro' as const, placeholder: '0' },
+                              { label: 'Carbs (g)', key: 'carb' as const, placeholder: '0' },
+                              { label: 'Fat (g)', key: 'fat' as const, placeholder: '0' },
+                            ].map(({ label, key, placeholder }) => (
+                              <div key={key}>
+                                <p className="text-zinc-600 text-xs mb-1">{label}</p>
+                                <Input
+                                  type="number"
+                                  value={manual[key]}
+                                  onChange={e => setManual(p => ({ ...p, [key]: e.target.value }))}
+                                  placeholder={placeholder}
+                                  className="bg-zinc-900 border-zinc-800 text-white text-xs h-8"
+                                />
+                              </div>
+                            ))}
                           </div>
                         </div>
+
+                        {/* Live preview of per-100g calc */}
+                        {manual.forGrams && manual.cal && parseFloat(manual.forGrams) > 0 && (
+                          <div className="rounded-lg px-3 py-2 text-xs" style={{ background: 'rgba(201,168,76,0.06)', border: '1px solid rgba(201,168,76,0.15)' }}>
+                            <span className="text-zinc-500">Per 100g: </span>
+                            <span className="text-zinc-300">
+                              {round1((parseFloat(manual.cal)||0) * 100 / parseFloat(manual.forGrams))} kcal
+                              {manual.pro ? ` · ${round1((parseFloat(manual.pro)||0) * 100 / parseFloat(manual.forGrams))}g P` : ''}
+                              {manual.carb ? ` · ${round1((parseFloat(manual.carb)||0) * 100 / parseFloat(manual.forGrams))}g C` : ''}
+                              {manual.fat ? ` · ${round1((parseFloat(manual.fat)||0) * 100 / parseFloat(manual.forGrams))}g F` : ''}
+                            </span>
+                          </div>
+                        )}
+
                         <button
                           onClick={saveCustomFood}
                           disabled={savingCustom}
