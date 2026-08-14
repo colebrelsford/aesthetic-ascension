@@ -13,6 +13,7 @@ import WorkoutTracker from './WorkoutTracker'
 import MeasurementsLogger from './MeasurementsLogger'
 import ClientSettings from './PasswordChange'
 import MacroTargetViewer from './MacroTargetViewer'
+import SupplementViewer from './SupplementViewer'
 import MacroSummary from './MacroSummary'
 import ProfilePhotoUpload from './ProfilePhotoUpload'
 import HomeScreenPrompt from './HomeScreenPrompt'
@@ -107,6 +108,7 @@ export default function ClientDashboard({ profile }: Props) {
               { value: 'plans', label: 'My Plans' },
               { value: 'measurements', label: 'Measurements' },
               { value: 'nutrition', label: 'Macro Matching' },
+              { value: 'supplements', label: 'Supplements' },
               { value: 'checkin', label: 'Check-in' },
               { value: 'history', label: 'History' },
               { value: 'settings', label: 'Settings' },
@@ -147,6 +149,10 @@ export default function ClientDashboard({ profile }: Props) {
 
           <TabsContent value="nutrition">
             <MacroTargetViewer clientId={profile.id} />
+          </TabsContent>
+
+          <TabsContent value="supplements">
+            <SupplementViewer clientId={profile.id} />
           </TabsContent>
 
           <TabsContent value="checkin">
