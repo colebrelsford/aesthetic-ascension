@@ -30,7 +30,6 @@ interface Props {
 
 export default function PlanEditor({ clientId, plan, onSaved }: Props) {
   const [notes, setNotes] = useState(htmlToText(plan?.training_split))
-  const [supplements, setSupplements] = useState(htmlToText(plan?.supplement_protocol))
   const [cardioType, setCardioType] = useState(plan?.cardio_type || '')
   const [cardioDuration, setCardioDuration] = useState(plan?.cardio_duration_min?.toString() || '')
   const [cardioSessions, setCardioSessions] = useState(plan?.cardio_sessions_per_week?.toString() || '')
@@ -46,7 +45,6 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
         ...(plan?.id ? { id: plan.id } : {}),
         client_id: clientId,
         training_split: notes,
-        supplement_protocol: supplements,
         cardio_type: cardioType || null,
         cardio_duration_min: cardioDuration ? parseInt(cardioDuration) : null,
         cardio_sessions_per_week: cardioSessions ? parseInt(cardioSessions) : null,
@@ -116,15 +114,6 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
           onChange={e => setNotes(e.target.value)}
           placeholder="General notes for this client — training reminders, guidance, etc."
           rows={6}
-          className="w-full rounded-xl px-3 py-2.5 text-sm text-white resize-y"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,168,76,0.15)', outline: 'none' }}
-        />
-        <p className="text-zinc-500 text-xs mt-4 mb-1.5">Supplement Protocol</p>
-        <textarea
-          value={supplements}
-          onChange={e => setSupplements(e.target.value)}
-          placeholder="e.g. Creatine 5g daily, protein shake post-workout, fish oil 2g with dinner…"
-          rows={5}
           className="w-full rounded-xl px-3 py-2.5 text-sm text-white resize-y"
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,168,76,0.15)', outline: 'none' }}
         />
