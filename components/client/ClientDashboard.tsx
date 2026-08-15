@@ -126,6 +126,33 @@ export default function ClientDashboard({ profile }: Props) {
             />
             <CheckinStreak clientId={profile.id} />
             <MacroSummary clientId={profile.id} />
+            {plan?.cardio_type && (
+              <div className="rounded-2xl p-4" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Cardio Targets</p>
+                <div className="flex flex-wrap gap-3">
+                  <div className="rounded-xl px-4 py-2.5 text-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                    <p className="text-white font-bold text-sm">{plan.cardio_type}</p>
+                    <p className="text-zinc-600 text-xs mt-0.5">Type</p>
+                  </div>
+                  {plan.cardio_duration_min && (
+                    <div className="rounded-xl px-4 py-2.5 text-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                      <p className="text-white font-bold text-sm">{plan.cardio_duration_min} min</p>
+                      <p className="text-zinc-600 text-xs mt-0.5">Duration</p>
+                    </div>
+                  )}
+                  {plan.cardio_sessions_per_week && (
+                    <div className="rounded-xl px-4 py-2.5 text-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                      <p className="text-white font-bold text-sm">{plan.cardio_sessions_per_week}×/week</p>
+                      <p className="text-zinc-600 text-xs mt-0.5">Frequency</p>
+                    </div>
+                  )}
+                </div>
+                {plan.cardio_notes && (
+                  <p className="text-zinc-500 text-xs mt-3">{plan.cardio_notes}</p>
+                )}
+                <p className="text-zinc-600 text-xs mt-2">Keep heart rate between 125–140 BPM.</p>
+              </div>
+            )}
             <WeightLogger clientId={profile.id} onLogged={onWeightLogged} />
             <WeightChart
               logs={weightLogs}
