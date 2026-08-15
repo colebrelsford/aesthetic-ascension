@@ -27,6 +27,7 @@ interface Props {
 // ══════════════════════════════════════════════════════════════════════════════
 
 interface Exercise {
+  id?: string
   name: string
   sets: string
   reps: string
@@ -84,38 +85,78 @@ function WorkoutTemplatesTab({ coachId, clients }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editDays, setEditDays] = useState<WorkoutDay[]>([])
+  const [editSaving, setEditSaving] = useState(false)
   const supabase = createClient()
 
-  useEffect(() => {
-    async function load() {
-      const { data: progs } = await supabase
-        .from('coach_workout_programs')
-        .select('*')
-        .eq('coach_id', coachId)
-        .order('created_at', { ascending: false })
-      if (!progs) return
-      const ids = progs.map(p => p.id)
-      const { data: days } = await supabase
+  async function loadPrograms() {
+    const { data: progs } = await supabase
+      .from('coach_workout_programs')
+      .select('*')
+      .eq('coach_id', coachId)
+      .order('created_at', { ascending: false })
+    if (!progs) return
+    const ids = progs.map(p => p.id)
+    const { data: days } = await supabase
+      .from('coach_workout_program_days')
+      .select('*, coach_workout_program_exercises(*)')
+      .in('program_id', ids)
+      .order('display_order')
+    const progMap = progs.map(p => ({
+      ...p,
+      days: (days || [])
+        .filter(d => d.program_id === p.id)
+        .map(d => ({
+          id: d.id,
+          name: d.name,
+          exercises: (d.coach_workout_program_exercises || [])
+            .sort((a: { display_order: number }, b: { display_order: number }) => a.display_order - b.display_order)
+            .map((e: { id: string; name: string; sets: string; reps: string; notes: string }) => ({ id: e.id, name: e.name, sets: e.sets || '', reps: e.reps || '', notes: e.notes || '' })),
+        })),
+    }))
+    setPrograms(progMap)
+  }
+
+  useEffect(() => { loadPrograms() }, [coachId])
+
+  function startEdit(prog: WorkoutProgram) {
+    setEditingId(prog.id)
+    setEditName(prog.name)
+    setEditDays((prog.days || []).map(d => ({ ...d, exercises: d.exercises.map(e => ({ ...e })) })))
+    setExpanded(prog.id)
+  }
+
+  async function saveEdit(progId: string) {
+    if (!editName.trim()) { toast.error('Enter a program name'); return }
+    const validDays = editDays.filter(d => d.name.trim())
+    if (!validDays.length) { toast.error('Add at least one day'); return }
+    setEditSaving(true)
+
+    // Update program name
+    await supabase.from('coach_workout_programs').update({ name: editName.trim() }).eq('id', progId)
+
+    // Delete all existing days (cascade deletes exercises)
+    await supabase.from('coach_workout_program_days').delete().eq('program_id', progId)
+
+    // Re-insert days and exercises
+    for (let i = 0; i < validDays.length; i++) {
+      const d = validDays[i]
+      const { data: day } = await supabase
         .from('coach_workout_program_days')
-        .select('*, coach_workout_program_exercises(*)')
-        .in('program_id', ids)
-        .order('display_order')
-      const progMap = progs.map(p => ({
-        ...p,
-        days: (days || [])
-          .filter(d => d.program_id === p.id)
-          .map(d => ({
-            id: d.id,
-            name: d.name,
-            exercises: (d.coach_workout_program_exercises || [])
-              .sort((a: { display_order: number }, b: { display_order: number }) => a.display_order - b.display_order)
-              .map((e: { name: string; sets: string; reps: string; notes: string }) => ({ name: e.name, sets: e.sets || '', reps: e.reps || '', notes: e.notes || '' })),
-          })),
-      }))
-      setPrograms(progMap)
+        .insert({ program_id: progId, name: d.name.trim(), display_order: i })
+        .select().single()
+      if (day) {
+        const exRows = d.exercises.filter(e => e.name.trim()).map((e, j) => ({
+          day_id: day.id, name: e.name.trim(), sets: e.sets, reps: e.reps, notes: e.notes, display_order: j,
+        }))
+        if (exRows.length) await supabase.from('coach_workout_program_exercises').insert(exRows)
+      }
     }
-    load()
-  }, [coachId])
+
+    setEditSaving(false)
+    setEditingId(null)
+    toast.success('Program updated!')
+    loadPrograms()
+  }
 
   async function saveProgram() {
     if (!newName.trim()) { toast.error('Enter a program name'); return }
@@ -145,9 +186,7 @@ function WorkoutTemplatesTab({ coachId, clients }: Props) {
     setCreating(false)
     setNewName('')
     setNewDays([{ name: '', exercises: [{ name: '', sets: '', reps: '', notes: '' }] }])
-    // reload
-    const { data: progs } = await supabase.from('coach_workout_programs').select('*').eq('coach_id', coachId).order('created_at', { ascending: false })
-    if (progs) setPrograms(progs.map(p => ({ ...p, days: [] })))
+    loadPrograms()
   }
 
   async function deleteProgram(id: string) {
@@ -246,52 +285,101 @@ function WorkoutTemplatesTab({ coachId, clients }: Props) {
           {programs.map(prog => (
             <div key={prog.id} className="rounded-2xl overflow-hidden" style={cardStyle}>
               <div className="flex items-center justify-between px-4 py-3">
-                <button className="flex-1 text-left" onClick={() => setExpanded(expanded === prog.id ? null : prog.id)}>
+                <button className="flex-1 text-left" onClick={() => { if (editingId !== prog.id) setExpanded(expanded === prog.id ? null : prog.id) }}>
                   <span className="text-white text-sm font-medium">{prog.name}</span>
                 </button>
                 <div className="flex items-center gap-2">
                   <span className="text-[#555] text-xs">{(prog.days || []).length} day{(prog.days || []).length !== 1 ? 's' : ''}</span>
+                  <button onClick={() => editingId === prog.id ? setEditingId(null) : startEdit(prog)}
+                    className="p-1 rounded-lg transition-colors" style={{ color: editingId === prog.id ? '#C9A84C' : '#555' }} title="Edit">
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
                   {expanded === prog.id ? <ChevronUp className="w-4 h-4 text-[#555]" /> : <ChevronDown className="w-4 h-4 text-[#555]" />}
                 </div>
               </div>
 
               {expanded === prog.id && (
                 <div className="px-4 pb-4 space-y-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div className="pt-3 space-y-2">
-                    {(prog.days || []).map((day, di) => (
-                      <div key={di} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                        <p className="text-[#C9A84C] text-xs font-semibold mb-2">{day.name}</p>
-                        {day.exercises.map((ex, ei) => (
-                          <div key={ei} className="flex items-center gap-3 text-xs py-0.5">
-                            <span className="text-[#555] w-4">{ei + 1}.</span>
-                            <span className="text-white font-medium flex-1">{ex.name}</span>
-                            {ex.sets && <span className="text-[#888]">{ex.sets}×{ex.reps}</span>}
-                            {ex.notes && <span className="text-[#555] italic">{ex.notes}</span>}
+                  {editingId === prog.id ? (
+                    /* ── Edit mode ── */
+                    <div className="pt-3 space-y-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[#666] text-xs uppercase tracking-wider">Program name</label>
+                        <Input value={editName} onChange={e => setEditName(e.target.value)} className="rounded-xl text-white" style={inputStyle} />
+                      </div>
+                      {editDays.map((day, di) => (
+                        <div key={di} className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div className="flex items-center gap-2">
+                            <Input value={day.name}
+                              onChange={e => setEditDays(editDays.map((d, i) => i === di ? { ...d, name: e.target.value } : d))}
+                              placeholder="Day name" className="rounded-lg text-white text-sm flex-1" style={inputStyle} />
+                            {editDays.length > 1 && (
+                              <button onClick={() => setEditDays(editDays.filter((_, i) => i !== di))} className="text-[#555] hover:text-red-400 p-1">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                          <ExerciseForm
+                            exercises={day.exercises}
+                            onChange={exs => setEditDays(editDays.map((d, i) => i === di ? { ...d, exercises: exs } : d))}
+                          />
+                        </div>
+                      ))}
+                      <button onClick={() => setEditDays([...editDays, { name: '', exercises: [{ name: '', sets: '', reps: '', notes: '' }] }])}
+                        className="flex items-center gap-1.5 text-xs text-[#C9A84C] hover:text-[#E8C97A]">
+                        <Plus className="w-3.5 h-3.5" /> Add day
+                      </button>
+                      <div className="flex gap-2">
+                        <button onClick={() => saveEdit(prog.id)} disabled={editSaving}
+                          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-black disabled:opacity-50"
+                          style={{ background: 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}>
+                          <Check className="w-3.5 h-3.5" /> {editSaving ? 'Saving…' : 'Save changes'}
+                        </button>
+                        <button onClick={() => setEditingId(null)} className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs text-[#666] hover:text-white" style={{ background: 'rgba(255,255,255,0.04)' }}>
+                          <X className="w-3.5 h-3.5" /> Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── View mode ── */
+                    <>
+                      <div className="pt-3 space-y-2">
+                        {(prog.days || []).map((day, di) => (
+                          <div key={di} className="rounded-xl p-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <p className="text-[#C9A84C] text-xs font-semibold mb-2">{day.name}</p>
+                            {day.exercises.map((ex, ei) => (
+                              <div key={ei} className="flex items-center gap-3 text-xs py-0.5">
+                                <span className="text-[#555] w-4">{ei + 1}.</span>
+                                <span className="text-white font-medium flex-1">{ex.name}</span>
+                                {ex.sets && <span className="text-[#888]">{ex.sets}×{ex.reps}</span>}
+                                {ex.notes && <span className="text-[#555] italic truncate max-w-[160px]">{ex.notes}</span>}
+                              </div>
+                            ))}
                           </div>
                         ))}
                       </div>
-                    ))}
-                  </div>
 
-                  {clients.length > 0 && (
-                    <div>
-                      <p className="text-[#555] text-xs mb-2">Assign to client</p>
-                      <div className="flex flex-wrap gap-2">
-                        {clients.map(c => (
-                          <button key={c.id} onClick={() => assignToClient(prog, c.id)} disabled={assigning === prog.id}
-                            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg disabled:opacity-50"
-                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#aaa' }}>
-                            <Send className="w-3 h-3" />
-                            {c.full_name.split(' ')[0]}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                      {clients.length > 0 && (
+                        <div>
+                          <p className="text-[#555] text-xs mb-2">Assign to client</p>
+                          <div className="flex flex-wrap gap-2">
+                            {clients.map(c => (
+                              <button key={c.id} onClick={() => assignToClient(prog, c.id)} disabled={assigning === prog.id}
+                                className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg disabled:opacity-50"
+                                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#aaa' }}>
+                                <Send className="w-3 h-3" />
+                                {c.full_name.split(' ')[0]}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <button onClick={() => deleteProgram(prog.id)} className="flex items-center gap-1.5 text-xs text-[#444] hover:text-red-400">
+                        <Trash2 className="w-3.5 h-3.5" /> Delete program
+                      </button>
+                    </>
                   )}
-
-                  <button onClick={() => deleteProgram(prog.id)} className="flex items-center gap-1.5 text-xs text-[#444] hover:text-red-400">
-                    <Trash2 className="w-3.5 h-3.5" /> Delete program
-                  </button>
                 </div>
               )}
             </div>
