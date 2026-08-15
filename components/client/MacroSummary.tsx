@@ -27,13 +27,13 @@ export default function MacroSummary({ clientId }: Props) {
       // Try meal plan foods first
       const { data: foods } = await supabase
         .from('meal_plan_foods')
-        .select('protein, carbs, fat, calories')
+        .select('protein_g, carbs_g, fat_g, calories')
         .eq('client_id', clientId)
 
       if (foods && foods.length > 0) {
-        const protein = foods.reduce((s, f) => s + (f.protein ?? 0), 0)
-        const carbs = foods.reduce((s, f) => s + (f.carbs ?? 0), 0)
-        const fat = foods.reduce((s, f) => s + (f.fat ?? 0), 0)
+        const protein = foods.reduce((s, f) => s + (f.protein_g ?? 0), 0)
+        const carbs = foods.reduce((s, f) => s + (f.carbs_g ?? 0), 0)
+        const fat = foods.reduce((s, f) => s + (f.fat_g ?? 0), 0)
         const cals = foods.reduce((s, f) => s + (f.calories ?? 0), 0)
         setTarget({ id: 'meal_plan', name: 'Meal Plan', protein_g: Math.round(protein), carbs_g: Math.round(carbs), fat_g: Math.round(fat), calories_override: Math.round(cals) })
         setSource('meal_plan')
