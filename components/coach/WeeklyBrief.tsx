@@ -43,7 +43,8 @@ export default function WeeklyBrief({ client }: Props) {
     const sevenDaysAgo = new Date(today)
     sevenDaysAgo.setDate(today.getDate() - 7)
     const sevenDaysAgoStr = sevenDaysAgo.toISOString().split('T')[0]
-    const fourteenDaysAgoStr = new Date(today.getTime() - 14 * 86400000).toISOString().split('T')[0]
+    // Fetch 60 days of logs so we always have a comparison point
+    const sixtyDaysAgoStr = new Date(today.getTime() - 60 * 86400000).toISOString().split('T')[0]
 
     const [
       { data: recentLogs },
@@ -51,17 +52,17 @@ export default function WeeklyBrief({ client }: Props) {
       { data: sessions },
       { data: sets },
     ] = await Promise.all([
-      supabase.from('weight_logs').select('*').eq('client_id', client.id).gte('date', fourteenDaysAgoStr).lte('date', todayStr).order('date', { ascending: false }),
+      supabase.from('weight_logs').select('*').eq('client_id', client.id).gte('date', sixtyDaysAgoStr).lte('date', todayStr).order('date', { ascending: false }),
       supabase.from('weekly_checkins').select('*').eq('client_id', client.id).order('week_start', { ascending: false }).limit(2),
       supabase.from('workout_sessions').select('id').eq('client_id', client.id).gte('session_date', sevenDaysAgoStr),
       supabase.from('set_logs').select('id').eq('client_id', client.id).gte('created_at', sevenDaysAgoStr + 'T00:00:00'),
     ])
 
     const logs = recentLogs || []
-    // Most recent log in last 7 days
-    const todayWeight = logs.find(l => l.date >= sevenDaysAgoStr) || null
-    // Most recent log from 7–14 days ago
-    const sevenDaysAgoWeight = logs.find(l => l.date < sevenDaysAgoStr) || null
+    // Latest logged weight (most recent entry regardless of how old)
+    const todayWeight = logs[0] || null
+    // Closest log on or before exactly 7 days ago from today
+    const sevenDaysAgoWeight = logs.find(l => l.date <= sevenDaysAgoStr) || null
 
     setData({
       todayWeight,
@@ -176,7 +177,7 @@ export default function WeeklyBrief({ client }: Props) {
                   <span className="text-[#555] font-normal text-xs ml-1.5">({latestWeight.date})</span>
                 </span>
               ) : (
-                <span className="text-[#555] text-sm">No logs in last 7 days</span>
+                <span className="text-[#555] text-sm">No weight logged yet</span>
               )}
               {data.sevenDaysAgoWeight && (
                 <span className="text-[#555] text-xs">7 days ago: {data.sevenDaysAgoWeight.weight_lbs} lbs</span>
