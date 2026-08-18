@@ -13,11 +13,20 @@ interface Props {
   onDrop?: (client: Profile) => void
 }
 
+interface CheckinSummary {
+  week_start: string
+  energy_level: number | null
+  stress_level: number | null
+  adherence_nutrition: number | null
+  adherence_training: number | null
+}
+
 export default function ClientCard({ client, coachId, onClick, onFlagToggle, onDrop }: Props) {
   const [latestWeight, setLatestWeight] = useState<WeightLog | null>(null)
   const [prevWeight, setPrevWeight] = useState<WeightLog | null>(null)
   const [unreadCount, setUnreadCount] = useState(0)
   const [flagging, setFlagging] = useState(false)
+  const [latestCheckin, setLatestCheckin] = useState<CheckinSummary | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -34,8 +43,10 @@ export default function ClientCard({ client, coachId, onClick, onFlagToggle, onD
 
     supabase
       .from('weekly_checkins')
-      .select('id, checkin_reads!left(coach_id)')
+      .select('id, week_start, energy_level, stress_level, adherence_nutrition, adherence_training, checkin_reads!left(coach_id)')
       .eq('client_id', client.id)
+      .order('week_start', { ascending: false })
+      .limit(5)
       .then(({ data }) => {
         if (!data) return
         const unread = data.filter(c => {
@@ -43,6 +54,7 @@ export default function ClientCard({ client, coachId, onClick, onFlagToggle, onD
           return !reads.some(r => r.coach_id === coachId)
         })
         setUnreadCount(unread.length)
+        if (data[0]) setLatestCheckin(data[0])
       })
   }, [client.id, coachId])
 
@@ -57,6 +69,22 @@ export default function ClientCard({ client, coachId, onClick, onFlagToggle, onD
 
   const diff = latestWeight && prevWeight ? latestWeight.weight_lbs - prevWeight.weight_lbs : null
   const initials = client.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+
+  // Warning signals from latest checkin
+  const warnings: string[] = []
+  if (latestCheckin) {
+    if (latestCheckin.energy_level !== null && latestCheckin.energy_level <= 4) warnings.push(`Energy ${latestCheckin.energy_level}/10`)
+    if (latestCheckin.stress_level !== null && latestCheckin.stress_level >= 8) warnings.push(`Stress ${latestCheckin.stress_level}/10`)
+    if (latestCheckin.adherence_nutrition !== null && latestCheckin.adherence_nutrition <= 4) warnings.push(`Nutrition ${latestCheckin.adherence_nutrition}/10`)
+  }
+
+  const phaseWeeks = client.current_phase && client.phase_start_date
+    ? Math.floor((Date.now() - new Date(client.phase_start_date).getTime()) / (7 * 86400000))
+    : null
+
+  const checkinDaysAgo = latestCheckin
+    ? Math.floor((Date.now() - new Date(latestCheckin.week_start + 'T00:00:00').getTime()) / 86400000)
+    : null
 
   return (
     <button
@@ -105,8 +133,9 @@ export default function ClientCard({ client, coachId, onClick, onFlagToggle, onD
         <ChevronRight className="w-4 h-4 text-[#444] group-hover:text-[#C9A84C] transition-colors mt-0.5" />
       </div>
 
+      {/* Weight row */}
       {latestWeight ? (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 mb-2.5">
           <span className="text-white font-semibold text-sm">{latestWeight.weight_lbs} lbs</span>
           {diff !== null && (
             <span className={`text-xs flex items-center gap-0.5 ${diff < 0 ? 'text-green-400' : diff > 0 ? 'text-red-400' : 'text-[#555]'}`}>
@@ -116,8 +145,27 @@ export default function ClientCard({ client, coachId, onClick, onFlagToggle, onD
           )}
         </div>
       ) : (
-        <p className="text-[#444] text-xs">No weight logged yet</p>
+        <p className="text-[#444] text-xs mb-2.5">No weight logged yet</p>
       )}
+
+      {/* Status row */}
+      <div className="flex flex-wrap items-center gap-2">
+        {client.current_phase && (
+          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(201,168,76,0.1)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.18)' }}>
+            {client.current_phase}{phaseWeeks !== null && phaseWeeks >= 0 ? ` W${phaseWeeks + 1}` : ''}
+          </span>
+        )}
+        {checkinDaysAgo !== null && (
+          <span className="text-xs text-[#555]">
+            Check-in {checkinDaysAgo === 0 ? 'today' : checkinDaysAgo === 1 ? '1d ago' : `${checkinDaysAgo}d ago`}
+          </span>
+        )}
+        {warnings.map(w => (
+          <span key={w} className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>
+            {w}
+          </span>
+        ))}
+      </div>
 
       {/* Flag button */}
       <button

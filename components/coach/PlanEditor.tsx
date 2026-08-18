@@ -34,6 +34,7 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
   const [cardioDuration, setCardioDuration] = useState(plan?.cardio_duration_min?.toString() || '')
   const [cardioSessions, setCardioSessions] = useState(plan?.cardio_sessions_per_week?.toString() || '')
   const [cardioNotes, setCardioNotes] = useState(plan?.cardio_notes || '')
+  const [stepsTarget, setStepsTarget] = useState(plan?.target_daily_steps?.toString() || '')
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
@@ -49,6 +50,7 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
         cardio_duration_min: cardioDuration ? parseInt(cardioDuration) : null,
         cardio_sessions_per_week: cardioSessions ? parseInt(cardioSessions) : null,
         cardio_notes: cardioNotes || null,
+        target_daily_steps: stepsTarget ? parseInt(stepsTarget) : null,
         updated_at: new Date().toISOString(),
       })
       .select()
@@ -89,6 +91,11 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
             <Input type="number" value={cardioSessions} onChange={e => setCardioSessions(e.target.value)}
               placeholder="0" className="text-white h-9 text-sm rounded-xl" style={inputStyle} />
           </div>
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[#666] text-xs uppercase tracking-wider">Daily steps target</Label>
+          <Input type="number" value={stepsTarget} onChange={e => setStepsTarget(e.target.value)}
+            placeholder="e.g. 8000" className="text-white h-9 text-sm rounded-xl" style={inputStyle} />
         </div>
         <div className="space-y-1.5">
           <Label className="text-[#666] text-xs uppercase tracking-wider">Notes</Label>
