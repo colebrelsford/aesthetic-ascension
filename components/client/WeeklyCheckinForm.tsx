@@ -94,7 +94,7 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
 
   function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
-    const newFiles = [...photos, ...files].slice(0, 5)
+    const newFiles = [...photos, ...files].slice(0, 10)
     setPhotos(newFiles)
     setPreviews(newFiles.map(f => URL.createObjectURL(f)))
   }
@@ -124,7 +124,7 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
         adherence_nutrition: nutritionAdherence,
         adherence_training: trainingAdherence,
         avg_daily_steps: avgDailySteps ? parseInt(avgDailySteps) : null,
-        water_intake_oz: waterIntake ? parseInt(waterIntake) : null,
+        water_intake_oz: waterIntake ? Math.round(parseFloat(waterIntake) * 128) : null,
         meals_missed: mealsMissed ? parseInt(mealsMissed) : null,
         off_plan_meals: offPlanMeals ? parseInt(offPlanMeals) : null,
         diet_adherence: dietAdherence,
@@ -184,7 +184,7 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
         <div className="grid grid-cols-2 gap-4">
           <NumberField label="Avg sleep per night" value={sleepHours} onChange={setSleepHours} placeholder="7.5" unit="hrs" />
           <NumberField label="Avg daily steps" sublabel="Estimate if not tracked" value={avgDailySteps} onChange={setAvgDailySteps} placeholder="8000" />
-          <NumberField label="Water intake" sublabel="Daily average" value={waterIntake} onChange={setWaterIntake} placeholder="100" unit="oz" />
+          <NumberField label="Water intake" sublabel="Daily average" value={waterIntake} onChange={setWaterIntake} placeholder="0.75" unit="gal" />
           <NumberField label="Meals missed" sublabel="Planned meals skipped" value={mealsMissed} onChange={setMealsMissed} placeholder="0" />
           <NumberField label="Off-plan meals" sublabel="Untracked / eating out" value={offPlanMeals} onChange={setOffPlanMeals} placeholder="0" />
         </div>
@@ -206,7 +206,7 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
       {/* ── Photos ── */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
-          <p className="text-zinc-400 text-xs uppercase tracking-wider">Progress photos (up to 5)</p>
+          <p className="text-zinc-400 text-xs uppercase tracking-wider">Progress photos (up to 10)</p>
           <button type="button" onClick={() => setShowPhotoGuide(!showPhotoGuide)}
             className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300 transition-colors">
             <Camera className="w-3.5 h-3.5" />
@@ -241,7 +241,7 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
             ))}
           </div>
         )}
-        {photos.length < 5 && (
+        {photos.length < 10 && (
           <label className="flex items-center gap-2 cursor-pointer text-zinc-400 hover:text-white transition-colors text-sm border border-dashed border-zinc-700 rounded-lg p-3 hover:border-zinc-500">
             <Upload className="w-4 h-4" />
             <span>Add photos</span>

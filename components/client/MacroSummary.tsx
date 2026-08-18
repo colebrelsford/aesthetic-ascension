@@ -20,24 +20,48 @@ interface Props {
 export default function MacroSummary({ clientId }: Props) {
   const [target, setTarget] = useState<MacroTarget | null>(null)
   const [source, setSource] = useState<'meal_plan' | 'macro_target'>('macro_target')
+  const [planName, setPlanName] = useState('')
   const supabase = createClient()
 
   useEffect(() => {
     async function load() {
-      // Try meal plan foods first
-      const { data: foods } = await supabase
-        .from('meal_plan_foods')
-        .select('protein_g, carbs_g, fat_g, calories')
+      // Get the first meal plan for this client
+      const { data: plans } = await supabase
+        .from('meal_plan_plans')
+        .select('id, name')
         .eq('client_id', clientId)
+        .order('display_order')
+        .limit(1)
 
-      if (foods && foods.length > 0) {
-        const protein = foods.reduce((s, f) => s + (f.protein_g ?? 0), 0)
-        const carbs = foods.reduce((s, f) => s + (f.carbs_g ?? 0), 0)
-        const fat = foods.reduce((s, f) => s + (f.fat_g ?? 0), 0)
-        const cals = foods.reduce((s, f) => s + (f.calories ?? 0), 0)
-        setTarget({ id: 'meal_plan', name: 'Meal Plan', protein_g: Math.round(protein), carbs_g: Math.round(carbs), fat_g: Math.round(fat), calories_override: Math.round(cals) })
-        setSource('meal_plan')
-        return
+      if (plans && plans.length > 0) {
+        const plan = plans[0]
+
+        // Get meals for that plan
+        const { data: meals } = await supabase
+          .from('meal_plan_meals')
+          .select('id')
+          .eq('plan_id', plan.id)
+
+        if (meals && meals.length > 0) {
+          const mealIds = meals.map(m => m.id)
+
+          // Get foods for those meals
+          const { data: foods } = await supabase
+            .from('meal_plan_foods')
+            .select('protein_g, carbs_g, fat_g, calories')
+            .in('meal_id', mealIds)
+
+          if (foods && foods.length > 0) {
+            const protein = foods.reduce((s, f) => s + (f.protein_g ?? 0), 0)
+            const carbs = foods.reduce((s, f) => s + (f.carbs_g ?? 0), 0)
+            const fat = foods.reduce((s, f) => s + (f.fat_g ?? 0), 0)
+            const cals = foods.reduce((s, f) => s + (f.calories ?? 0), 0)
+            setTarget({ id: 'meal_plan', name: plan.name, protein_g: Math.round(protein), carbs_g: Math.round(carbs), fat_g: Math.round(fat), calories_override: Math.round(cals) })
+            setPlanName(plan.name)
+            setSource('meal_plan')
+            return
+          }
+        }
       }
 
       // Fall back to macro_targets table
@@ -68,7 +92,7 @@ export default function MacroSummary({ clientId }: Props) {
           </p>
         </div>
         <span className="text-[10px] text-zinc-600">
-          {source === 'meal_plan' ? 'from meal plan' : 'from macro plan'}
+          {source === 'meal_plan' ? `from meal plan${planName ? ` · ${planName}` : ''}` : 'from macro plan'}
         </span>
       </div>
       <div className="grid grid-cols-4 gap-2">

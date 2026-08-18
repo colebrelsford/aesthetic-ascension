@@ -176,10 +176,11 @@ export default function WeeklyBrief({ client }: Props) {
       flags.push({ text: `Sleep quality is low (${c.sleep_quality}/10) even if hours are there — may need to address sleep hygiene.`, type: 'warn' })
     }
 
-    // Water
+    // Water (stored as oz, display as gallons)
     if (c.water_intake_oz != null) {
-      if (c.water_intake_oz < 64) flags.push({ text: `Water intake is low at ${c.water_intake_oz}oz/day — target at least 64–80oz.`, type: 'warn' })
-      else if (c.water_intake_oz >= 100) flags.push({ text: `Water intake is excellent: ${c.water_intake_oz}oz/day.`, type: 'good' })
+      const gal = +(c.water_intake_oz / 128).toFixed(2)
+      if (c.water_intake_oz < 64) flags.push({ text: `Water intake is low at ${gal} gal/day — target at least 0.5–0.75 gal.`, type: 'warn' })
+      else if (c.water_intake_oz >= 100) flags.push({ text: `Water intake is excellent: ${gal} gal/day.`, type: 'good' })
     }
 
     // Meals missed
@@ -379,7 +380,7 @@ export default function WeeklyBrief({ client }: Props) {
                   <div className="flex justify-between text-xs">
                     <span className="text-[#666]">Water / day</span>
                     <span className="font-semibold" style={{ color: c.water_intake_oz >= 80 ? '#4ade80' : c.water_intake_oz >= 64 ? '#aaa' : '#f87171' }}>
-                      {c.water_intake_oz} oz
+                      {(c.water_intake_oz / 128).toFixed(2)} gal
                     </span>
                   </div>
                 )}
