@@ -161,7 +161,7 @@ export default function ClientDashboard({ profile }: Props) {
                   )}
                   {plan?.target_daily_steps && (
                     <div className="rounded-xl px-4 py-2.5 text-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                      <p className="text-white font-bold text-sm">{plan.target_daily_steps.toLocaleString()}</p>
+                      <p className="text-white font-bold text-sm">{plan.target_daily_steps}</p>
                       <p className="text-zinc-600 text-xs mt-0.5">Steps / day</p>
                     </div>
                   )}

@@ -154,16 +154,11 @@ export default function WeeklyBrief({ client }: Props) {
 
     // Steps vs target
     if (stepsTarget && c.avg_daily_steps != null) {
-      const pct = Math.round((c.avg_daily_steps / stepsTarget) * 100)
-      if (c.avg_daily_steps < stepsTarget * 0.8) {
-        flags.push({ text: `Steps are ${pct}% of target (${c.avg_daily_steps.toLocaleString()} / ${stepsTarget.toLocaleString()}/day) — well below goal.`, type: 'warn' })
-      } else if (c.avg_daily_steps < stepsTarget) {
-        flags.push({ text: `Steps slightly under target: ${c.avg_daily_steps.toLocaleString()} / ${stepsTarget.toLocaleString()}/day.`, type: 'neutral' })
-      } else {
-        flags.push({ text: `Steps on target: ${c.avg_daily_steps.toLocaleString()}/day. Great job.`, type: 'good' })
-      }
+      flags.push({ text: `Reported ${c.avg_daily_steps.toLocaleString()} steps/day (target: ${stepsTarget}).`, type: 'neutral' })
     } else if (stepsTarget && c.avg_daily_steps == null) {
-      flags.push({ text: `Steps not reported this week (target: ${stepsTarget.toLocaleString()}/day).`, type: 'warn' })
+      flags.push({ text: `Steps not reported this week (target: ${stepsTarget}).`, type: 'warn' })
+    } else if (!stepsTarget && c.avg_daily_steps != null) {
+      flags.push({ text: `${c.avg_daily_steps.toLocaleString()} steps/day reported.`, type: 'neutral' })
     }
 
     // Sleep
@@ -371,8 +366,8 @@ export default function WeeklyBrief({ client }: Props) {
                 {c.avg_daily_steps != null && (
                   <div className="flex justify-between text-xs">
                     <span className="text-[#666]">Steps / day</span>
-                    <span className="font-semibold" style={{ color: stepsTarget ? (c.avg_daily_steps >= stepsTarget ? '#4ade80' : c.avg_daily_steps >= stepsTarget * 0.8 ? '#fb923c' : '#f87171') : '#aaa' }}>
-                      {c.avg_daily_steps.toLocaleString()}{stepsTarget ? ` / ${stepsTarget.toLocaleString()}` : ''}
+                    <span className="font-semibold text-[#aaa]">
+                      {c.avg_daily_steps.toLocaleString()}{stepsTarget ? ` (target: ${stepsTarget})` : ''}
                     </span>
                   </div>
                 )}

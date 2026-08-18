@@ -61,7 +61,7 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
         cardio_duration_min: cardioDuration ? parseInt(cardioDuration) : null,
         cardio_sessions_per_week: cardioSessions ? parseInt(cardioSessions) : null,
         cardio_notes: cardioNotes || null,
-        target_daily_steps: stepsTarget ? parseInt(stepsTarget) : null,
+        target_daily_steps: stepsTarget.trim() || null,
         updated_at: new Date().toISOString(),
       })
       .select()
@@ -113,8 +113,8 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
         </div>
         <div className="space-y-1.5">
           <Label className="text-[#666] text-xs uppercase tracking-wider">Daily steps target</Label>
-          <Input type="number" value={stepsTarget} onChange={e => setStepsTarget(e.target.value)}
-            placeholder="e.g. 8000" className="text-white h-9 text-sm rounded-xl" style={inputStyle} />
+          <Input value={stepsTarget} onChange={e => setStepsTarget(e.target.value)}
+            placeholder="e.g. 8-10k, 10k+" className="text-white h-9 text-sm rounded-xl" style={inputStyle} />
         </div>
         <div className="space-y-1.5 mt-3">
           <Label className="text-[#666] text-xs uppercase tracking-wider">Notes</Label>
