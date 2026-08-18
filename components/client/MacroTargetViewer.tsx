@@ -58,11 +58,14 @@ function DonutChart({ protein, carbs, fat }: { protein: number; carbs: number; f
 }
 
 const STEPS = [
-  { n: 1, text: 'Download MyNetDiary from the App Store or Google Play.' },
-  { n: 2, text: "Create a free account. Skip the guided setup — you'll use your coach's targets instead." },
-  { n: 3, text: 'Tap the + button to log a meal. Search for the food, pick the right item, and set your portion.' },
-  { n: 4, text: 'Check your daily totals at the bottom of the diary screen. Aim to hit the targets your coach set above.' },
-  { n: 5, text: "Don't stress about being exact — within ±10g on protein and ±50 kcal is close enough." },
+  { n: 1, text: 'Download MyNetDiary from the App Store or Google Play and create a free account. Skip the guided setup — you\'ll use your coach\'s targets instead.' },
+  { n: 2, text: 'Set your macro targets manually: go to More → Goals → Nutrients Goal and enter the exact protein, carbs, and fat numbers your coach gave you. Do not use the app\'s auto-calculated goals.' },
+  { n: 3, text: 'Log every meal before you eat it. Tap the + button, search for the food, and always select the version with the most specific data (grams, not "1 serving" when possible).' },
+  { n: 4, text: 'Weigh everything on a kitchen scale and enter the exact gram amount. Do not estimate. A handful of rice or a "medium" chicken breast can vary by 50–100+ calories — that compounds over a week.' },
+  { n: 5, text: 'Use the barcode scanner for any packaged food. Tap the barcode icon in the search bar, scan the package, and confirm the serving size matches what you actually ate.' },
+  { n: 6, text: 'Check your daily totals throughout the day — not just at the end. If you\'re short on protein by dinner, you still have time to adjust. Hitting totals after the fact doesn\'t count.' },
+  { n: 7, text: 'Log cooking oils, sauces, and condiments. These are easy to skip but a tablespoon of oil is ~120 calories. Use cooking spray instead to eliminate the tracking altogether.' },
+  { n: 8, text: 'At the end of each day, review your diary. If you consistently miss a macro, bring it to your coach at check-in so we can adjust the plan or your food choices.' },
 ]
 
 export default function MacroTargetViewer({ clientId }: Props) {

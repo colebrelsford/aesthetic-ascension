@@ -34,7 +34,8 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
   const [cardioDuration, setCardioDuration] = useState(plan?.cardio_duration_min?.toString() || '')
   const [cardioSessions, setCardioSessions] = useState(plan?.cardio_sessions_per_week?.toString() || '')
   const [cardioNotes, setCardioNotes] = useState(plan?.cardio_notes || '')
-  const [stepsTarget, setStepsTarget] = useState(plan?.target_daily_steps?.toString() || '')
+  const [stepsTarget, setStepsTarget] = useState(plan?.target_daily_steps || '')
+  const [waterTarget, setWaterTarget] = useState(plan?.water_target || '')
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
@@ -46,7 +47,8 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
     setCardioDuration(plan.cardio_duration_min?.toString() || '')
     setCardioSessions(plan.cardio_sessions_per_week?.toString() || '')
     setCardioNotes(plan.cardio_notes || '')
-    setStepsTarget(plan.target_daily_steps?.toString() || '')
+    setStepsTarget(plan.target_daily_steps || '')
+    setWaterTarget(plan.water_target || '')
   }, [plan?.id])
 
   async function handleSave() {
@@ -62,6 +64,7 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
         cardio_sessions_per_week: cardioSessions ? parseInt(cardioSessions) : null,
         cardio_notes: cardioNotes || null,
         target_daily_steps: stepsTarget.trim() || null,
+        water_target: waterTarget.trim() || null,
         updated_at: new Date().toISOString(),
       })
       .select()
@@ -115,6 +118,11 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
           <Label className="text-[#666] text-xs uppercase tracking-wider">Daily steps target</Label>
           <Input value={stepsTarget} onChange={e => setStepsTarget(e.target.value)}
             placeholder="e.g. 8-10k, 10k+" className="text-white h-9 text-sm rounded-xl" style={inputStyle} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[#666] text-xs uppercase tracking-wider">Daily water target</Label>
+          <Input value={waterTarget} onChange={e => setWaterTarget(e.target.value)}
+            placeholder="e.g. 1 gallon, 0.75 gal" className="text-white h-9 text-sm rounded-xl" style={inputStyle} />
         </div>
         <div className="space-y-1.5 mt-3">
           <Label className="text-[#666] text-xs uppercase tracking-wider">Notes</Label>

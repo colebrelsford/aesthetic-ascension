@@ -32,6 +32,7 @@ export interface Plan {
   cardio_sessions_per_week: number | null
   cardio_notes: string | null
   target_daily_steps: string | null
+  water_target: string | null
   updated_at: string
 }
 

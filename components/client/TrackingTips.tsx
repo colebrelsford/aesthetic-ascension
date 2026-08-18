@@ -6,7 +6,7 @@ const TIPS = [
   {
     icon: Scale,
     title: 'Weigh your food',
-    body: 'Use a kitchen food scale and weigh everything in grams — especially proteins and carbs. Volume measurements (cups, tablespoons) are inaccurate enough to throw off your macros significantly.',
+    body: 'Use a kitchen food scale and weigh everything in grams. Volume measurements (cups, tablespoons) are inaccurate enough to throw off your macros significantly.',
   },
   {
     icon: Flame,

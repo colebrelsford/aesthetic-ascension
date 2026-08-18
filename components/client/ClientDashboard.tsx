@@ -137,7 +137,7 @@ export default function ClientDashboard({ profile }: Props) {
             />
             <CheckinStreak clientId={profile.id} />
             <MacroSummary clientId={profile.id} />
-            {(plan?.cardio_type || plan?.target_daily_steps) && (
+            {(plan?.cardio_type || plan?.target_daily_steps || plan?.water_target) && (
               <div className="rounded-2xl p-4" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)' }}>
                 <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-3">Cardio & Activity Targets</p>
                 <div className="flex flex-wrap gap-3">
@@ -165,12 +165,18 @@ export default function ClientDashboard({ profile }: Props) {
                       <p className="text-zinc-600 text-xs mt-0.5">Steps / day</p>
                     </div>
                   )}
+                  {plan?.water_target && (
+                    <div className="rounded-xl px-4 py-2.5 text-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                      <p className="text-white font-bold text-sm">{plan.water_target}</p>
+                      <p className="text-zinc-600 text-xs mt-0.5">Water / day</p>
+                    </div>
+                  )}
                 </div>
                 {plan?.cardio_notes && (
                   <p className="text-zinc-500 text-xs mt-3">{plan.cardio_notes}</p>
                 )}
                 {plan?.cardio_type && (
-                  <p className="text-zinc-600 text-xs mt-2">Keep heart rate between 125–140 BPM.</p>
+                  <p className="text-zinc-600 text-xs mt-2">Keep heart rate between 125–145 BPM.</p>
                 )}
               </div>
             )}

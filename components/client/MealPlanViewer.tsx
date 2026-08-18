@@ -190,6 +190,33 @@ export default function MealPlanViewer({ clientId }: Props) {
         <p className="text-zinc-700 text-sm text-center py-4">No meals in this plan yet.</p>
       )}
 
+      {/* Meal plan reminders */}
+      <div className="rounded-2xl overflow-hidden" style={{ background: '#111', border: '1px solid rgba(255,255,255,0.07)' }}>
+        <div className="px-5 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <h3 className="font-semibold text-white text-sm">Meal plan reminders</h3>
+        </div>
+        <div className="divide-y" style={{ borderColor: 'rgba(255,255,255,0.05)' }}>
+          <div className="flex gap-4 px-5 py-4">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ background: 'rgba(201,168,76,0.1)' }}>
+              <span className="text-base">🥤</span>
+            </div>
+            <div>
+              <p className="text-zinc-200 text-sm font-medium">Diet drinks are okay — in moderation</p>
+              <p className="text-zinc-500 text-xs leading-relaxed mt-0.5">Diet sodas, sparkling water, and zero-calorie drinks are fine to include. Limit yourself to 2–3 per day max. Prioritize plain water above everything else.</p>
+            </div>
+          </div>
+          <div className="flex gap-4 px-5 py-4">
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0 mt-0.5" style={{ background: 'rgba(201,168,76,0.1)' }}>
+              <span className="text-base">🥬</span>
+            </div>
+            <div>
+              <p className="text-zinc-200 text-sm font-medium">Add lettuce or greens for satiety</p>
+              <p className="text-zinc-500 text-xs leading-relaxed mt-0.5">If you're feeling hungry between meals, add a large handful of lettuce, spinach, or leafy greens to any meal. Nearly zero calories, high volume — it fills you up without affecting your macros.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <TrackingTips />
     </div>
   )
