@@ -168,6 +168,36 @@ export default function WeeklyBrief({ client }: Props) {
 
       {open && (
         <div className="px-4 pb-4 space-y-4" style={{ borderTop: '1px solid rgba(201,168,76,0.1)' }}>
+          {/* Numbers snapshot */}
+          {c && (c.avg_daily_steps || c.sleep_hours || c.water_intake_oz || c.meals_missed != null || c.off_plan_meals != null) && (
+            <div className="pt-3">
+              <p className="text-[#555] text-xs uppercase tracking-wider mb-2">Weekly numbers</p>
+              <div className="flex flex-wrap gap-3">
+                {c.sleep_hours && (
+                  <div className="text-xs"><span className="text-white font-medium">{c.sleep_hours}h</span><span className="text-[#555] ml-1">sleep/night</span></div>
+                )}
+                {c.avg_daily_steps && (
+                  <div className="text-xs"><span className="text-white font-medium">{c.avg_daily_steps.toLocaleString()}</span><span className="text-[#555] ml-1">steps/day</span></div>
+                )}
+                {c.water_intake_oz && (
+                  <div className="text-xs"><span className="text-white font-medium">{c.water_intake_oz}oz</span><span className="text-[#555] ml-1">water/day</span></div>
+                )}
+                {c.meals_missed != null && c.meals_missed > 0 && (
+                  <div className="text-xs"><span className="font-medium" style={{ color: '#f87171' }}>{c.meals_missed}</span><span className="text-[#555] ml-1">meal{c.meals_missed !== 1 ? 's' : ''} missed</span></div>
+                )}
+                {c.off_plan_meals != null && c.off_plan_meals > 0 && (
+                  <div className="text-xs"><span className="font-medium" style={{ color: '#fb923c' }}>{c.off_plan_meals}</span><span className="text-[#555] ml-1">off-plan meal{c.off_plan_meals !== 1 ? 's' : ''}</span></div>
+                )}
+              </div>
+              {c.digestion_notes && (
+                <p className="text-[#666] text-xs mt-2">Digestion: {c.digestion_notes}</p>
+              )}
+              {c.anything_else && (
+                <p className="text-[#888] text-xs mt-1 italic">"{c.anything_else}"</p>
+              )}
+            </div>
+          )}
+
           {/* Weight */}
           <div className="pt-3">
             <p className="text-[#555] text-xs uppercase tracking-wider mb-2">Weight</p>

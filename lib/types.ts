@@ -12,6 +12,9 @@ export interface Profile {
   flagged: boolean
   status: 'active' | 'dropped' | null
   created_at: string
+  current_phase: string | null
+  phase_start_date: string | null
+  phase_notes: string | null
 }
 
 export interface Plan {
@@ -57,6 +60,13 @@ export interface WeeklyCheckin {
   could_do_better: string | null
   progression_notes: string | null
   coach_feedback: string | null
+  sleep_hours: number | null
+  avg_daily_steps: number | null
+  water_intake_oz: number | null
+  meals_missed: number | null
+  off_plan_meals: number | null
+  digestion_notes: string | null
+  anything_else: string | null
   created_at: string
 }
 

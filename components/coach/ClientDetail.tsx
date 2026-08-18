@@ -18,6 +18,7 @@ import WeeklyBrief from './WeeklyBrief'
 import MealPlanBuilder from './MealPlanBuilder'
 import MacroTargetBuilder from './MacroTargetBuilder'
 import SupplementBuilder from './SupplementBuilder'
+import PhaseTracker from './PhaseTracker'
 
 interface Props {
   client: Profile
@@ -168,7 +169,8 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
         <TabsContent value="progression">
           <ProgressionView clientId={client.id} plan={plan} />
         </TabsContent>
-        <TabsContent value="plans">
+        <TabsContent value="plans" className="space-y-4">
+          <PhaseTracker clientId={client.id} />
           <PlanEditor clientId={client.id} plan={plan} onSaved={setPlan} />
         </TabsContent>
         <TabsContent value="checkins">

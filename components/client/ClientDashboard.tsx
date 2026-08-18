@@ -93,6 +93,17 @@ export default function ClientDashboard({ profile }: Props) {
             {totalChange > 0 ? '+' : ''}{totalChange.toFixed(1)} lbs since you started
           </p>
         )}
+        {profile.current_phase && (
+          <div className="flex items-center gap-2 mt-2">
+            <span className="text-xs px-2.5 py-1 rounded-full font-medium" style={{ background: 'rgba(201,168,76,0.12)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.2)' }}>
+              {profile.current_phase}
+              {profile.phase_start_date && (() => {
+                const weeks = Math.floor((Date.now() - new Date(profile.phase_start_date).getTime()) / (7 * 86400000))
+                return weeks >= 0 ? ` — Week ${weeks + 1}` : ''
+              })()}
+            </span>
+          </div>
+        )}
         <div className="mt-3 h-px w-12" style={{ background: 'linear-gradient(90deg, #C9A84C, transparent)' }} />
       </div>
 
