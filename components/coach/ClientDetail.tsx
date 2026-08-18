@@ -5,7 +5,7 @@ import { Profile, Plan, WeightLog, WeeklyCheckin, ProgressPhoto } from '@/lib/ty
 import { createClient } from '@/lib/supabase/client'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, Bell } from 'lucide-react'
+import { ArrowLeft, Bell, Pencil, Check, X } from 'lucide-react'
 import { toast } from 'sonner'
 import WeightChart from '@/components/client/WeightChart'
 import PlanEditor from './PlanEditor'
@@ -37,6 +37,9 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
   const [photos, setPhotos] = useState<ProgressPhoto[]>([])
   const [deadlineDay, setDeadlineDay] = useState<number>(client.checkin_deadline_day ?? -1)
   const [deadlineSaving, setDeadlineSaving] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [nameValue, setNameValue] = useState(client.full_name)
+  const [displayName, setDisplayName] = useState(client.full_name)
   const supabase = createClient()
 
   const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -76,7 +79,17 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
     markRead()
   }, [client.id, coachId])
 
-  const initials = client.full_name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+  const initials = displayName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase()
+
+  async function saveName() {
+    const trimmed = nameValue.trim()
+    setEditingName(false)
+    if (!trimmed || trimmed === displayName) return
+    await supabase.from('profiles').update({ full_name: trimmed }).eq('id', client.id)
+    setDisplayName(trimmed)
+    if (onClientUpdate) onClientUpdate({ ...client, full_name: trimmed })
+    toast.success('Name updated')
+  }
 
   async function sendReminder() {
     const res = await fetch('/api/send-push', {
@@ -115,7 +128,29 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
             }}>{initials}</div>
           )}
           <div>
-            <h2 className="text-lg font-bold text-white">{client.full_name}</h2>
+            {editingName ? (
+              <div className="flex items-center gap-1.5">
+                <input
+                  value={nameValue}
+                  onChange={e => setNameValue(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') { setEditingName(false); setNameValue(displayName) } }}
+                  className="bg-transparent border-b text-lg font-bold text-white outline-none w-40"
+                  style={{ borderColor: 'rgba(201,168,76,0.5)' }}
+                  autoFocus
+                />
+                <button onClick={saveName} className="text-[#C9A84C] hover:text-white"><Check className="w-3.5 h-3.5" /></button>
+                <button onClick={() => { setEditingName(false); setNameValue(displayName) }} className="text-[#555] hover:text-white"><X className="w-3.5 h-3.5" /></button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setEditingName(true)}
+                className="flex items-center gap-1.5 group text-left"
+                title="Click to rename"
+              >
+                <h2 className="text-lg font-bold text-white">{displayName}</h2>
+                <Pencil className="w-3 h-3 text-[#444] opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            )}
             <p className="text-[#555] text-xs">{client.email}</p>
           </div>
         </div>
