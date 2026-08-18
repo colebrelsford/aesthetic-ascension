@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Plan } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
@@ -37,6 +37,17 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
   const [stepsTarget, setStepsTarget] = useState(plan?.target_daily_steps?.toString() || '')
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
+
+  // Re-sync all fields when plan loads asynchronously (parent starts with null)
+  useEffect(() => {
+    if (!plan) return
+    setNotes(htmlToText(plan.training_split))
+    setCardioType(plan.cardio_type || '')
+    setCardioDuration(plan.cardio_duration_min?.toString() || '')
+    setCardioSessions(plan.cardio_sessions_per_week?.toString() || '')
+    setCardioNotes(plan.cardio_notes || '')
+    setStepsTarget(plan.target_daily_steps?.toString() || '')
+  }, [plan?.id])
 
   async function handleSave() {
     setSaving(true)
