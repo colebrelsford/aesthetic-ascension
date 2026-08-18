@@ -69,11 +69,19 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
     <div className="space-y-4">
       {/* Cardio targets */}
       <div className="rounded-2xl p-5" style={cardStyle}>
-        <div className="flex items-center gap-2 mb-4">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.12)' }}>
-            <Timer className="w-3.5 h-3.5" style={{ color: '#C9A84C' }} />
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.12)' }}>
+              <Timer className="w-3.5 h-3.5" style={{ color: '#C9A84C' }} />
+            </div>
+            <h3 className="font-semibold text-white text-sm">Cardio & Activity Targets</h3>
           </div>
-          <h3 className="font-semibold text-white text-sm">Cardio Targets</h3>
+          <button onClick={handleSave} disabled={saving}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-black transition-all disabled:opacity-50"
+            style={{ background: 'linear-gradient(135deg, #C9A84C 0%, #E8C97A 100%)' }}>
+            <Save className="w-3.5 h-3.5" />
+            {saving ? 'Saving…' : 'Save'}
+          </button>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
           <div className="space-y-1.5">
@@ -97,7 +105,7 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
           <Input type="number" value={stepsTarget} onChange={e => setStepsTarget(e.target.value)}
             placeholder="e.g. 8000" className="text-white h-9 text-sm rounded-xl" style={inputStyle} />
         </div>
-        <div className="space-y-1.5">
+        <div className="space-y-1.5 mt-3">
           <Label className="text-[#666] text-xs uppercase tracking-wider">Notes</Label>
           <Input value={cardioNotes} onChange={e => setCardioNotes(e.target.value)}
             placeholder="e.g. Fasted, post-workout, incline 10 speed 3.0"
@@ -113,7 +121,7 @@ export default function PlanEditor({ clientId, plan, onSaved }: Props) {
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold text-black transition-all disabled:opacity-50"
             style={{ background: 'linear-gradient(135deg, #C9A84C 0%, #E8C97A 100%)' }}>
             <Save className="w-3.5 h-3.5" />
-            {saving ? 'Saving…' : 'Save'}
+            {saving ? 'Saving…' : 'Save all'}
           </button>
         </div>
         <textarea
