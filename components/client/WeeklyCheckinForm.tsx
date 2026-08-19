@@ -99,6 +99,31 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
     setPreviews(newFiles.map(f => URL.createObjectURL(f)))
   }
 
+  async function compressPhoto(file: File): Promise<File> {
+    return new Promise(resolve => {
+      const img = new window.Image()
+      const url = URL.createObjectURL(file)
+      img.onload = () => {
+        URL.revokeObjectURL(url)
+        const MAX = 1200
+        let { width, height } = img
+        if (width > MAX || height > MAX) {
+          if (width > height) { height = Math.round((height * MAX) / width); width = MAX }
+          else { width = Math.round((width * MAX) / height); height = MAX }
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        canvas.getContext('2d')!.drawImage(img, 0, 0, width, height)
+        canvas.toBlob(blob => {
+          resolve(blob ? new File([blob], file.name.replace(/\.[^.]+$/, '.jpg'), { type: 'image/jpeg' }) : file)
+        }, 'image/jpeg', 0.82)
+      }
+      img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+      img.src = url
+    })
+  }
+
   function removePhoto(index: number) {
     setPhotos(photos.filter((_, i) => i !== index))
     setPreviews(previews.filter((_, i) => i !== index))
@@ -145,9 +170,9 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
     }
 
     for (const photo of photos) {
-      const ext = photo.name.split('.').pop()
-      const fileName = `${clientId}/${checkin.id}/${Date.now()}.${ext}`
-      const { error: uploadError } = await supabase.storage.from('progress-photos').upload(fileName, photo)
+      const compressed = await compressPhoto(photo)
+      const fileName = `${clientId}/${checkin.id}/${Date.now()}.jpg`
+      const { error: uploadError } = await supabase.storage.from('progress-photos').upload(fileName, compressed, { contentType: 'image/jpeg' })
       if (!uploadError) {
         const { data: { publicUrl } } = supabase.storage.from('progress-photos').getPublicUrl(fileName)
         await supabase.from('progress_photos').insert({
