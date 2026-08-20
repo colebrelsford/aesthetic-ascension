@@ -90,7 +90,8 @@ export default function MacroTargetViewer({ clientId }: Props) {
   if (loading || plans.length === 0) return null
 
   const target = plans.find(p => p.id === selectedId) ?? plans[0]
-  const calories = Math.round(target.protein_g * 4 + target.carbs_g * 4 + target.fat_g * 9)
+  const computedCalories = Math.round(target.protein_g * 4 + target.carbs_g * 4 + target.fat_g * 9)
+  const calories = (target as any).calories_override || computedCalories
 
   return (
     <div className="space-y-4">

@@ -6,7 +6,7 @@ import { WorkoutTemplate, WorkoutExercise, SetLog } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { ChevronRight, ArrowLeft, Plus, Trash2, Dumbbell } from 'lucide-react'
+import { ChevronRight, ArrowLeft, Plus, Trash2, Dumbbell, ChevronDown, ChevronUp } from 'lucide-react'
 
 interface Props {
   clientId: string
@@ -24,6 +24,7 @@ export default function WorkoutTracker({ clientId }: Props) {
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [saving, setSaving] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showTips, setShowTips] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
@@ -165,22 +166,86 @@ export default function WorkoutTracker({ clientId }: Props) {
 
   if (!selectedTemplate) {
     return (
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-        <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2">
-          <Dumbbell className="w-4 h-4 text-zinc-400" />
-          <h3 className="font-medium text-white text-sm">Select Today&apos;s Workout</h3>
+      <div className="space-y-3">
+        {/* Training Guidelines */}
+        <div className="rounded-2xl overflow-hidden" style={{ background: '#111', border: '1px solid rgba(201,168,76,0.18)' }}>
+          <button
+            onClick={() => setShowTips(!showTips)}
+            className="w-full flex items-center justify-between px-4 py-3 text-left"
+          >
+            <div className="flex items-center gap-2">
+              <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(201,168,76,0.12)' }}>
+                <Dumbbell className="w-3 h-3" style={{ color: '#C9A84C' }} />
+              </div>
+              <span className="text-sm font-semibold text-white">Training Guidelines</span>
+            </div>
+            {showTips ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+          </button>
+          {showTips && (
+            <div className="px-4 pb-4 space-y-4" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+              <div className="pt-3 space-y-3">
+                {[
+                  {
+                    heading: 'Warm-up sets',
+                    body: 'Do 1–3 warm-up sets as you approach your working weight. These do NOT count as working sets — use lighter weight to prime the movement and protect your joints.',
+                  },
+                  {
+                    heading: 'Only count working sets',
+                    body: 'Log only your true working sets. If a set was too easy to be challenging, it wasn\'t a working set.',
+                  },
+                  {
+                    heading: 'Train to failure',
+                    body: 'Every working set should be taken to technical failure — the point where you cannot complete another rep with good form. Set yourself up to fail within the designated rep range. If you hit the top of the range with gas left in the tank, add weight next session.',
+                  },
+                  {
+                    heading: 'Control the eccentric',
+                    body: 'Be slow and deliberate on the way down (eccentric). A 2–3 second negative puts more stress on the muscle and reduces injury risk. Don\'t let gravity do the work.',
+                  },
+                  {
+                    heading: 'Pause and contract',
+                    body: 'At the top of each rep, pause and squeeze the target muscle. Feel the contraction before returning to the start. This is what separates intentional training from just moving weight.',
+                  },
+                  {
+                    heading: 'Lift with intention',
+                    body: 'Every rep should be deliberate. Think about the muscle you\'re training — not the weight in your hands. Throwing weight around builds momentum, not muscle.',
+                  },
+                  {
+                    heading: 'Mind-muscle connection',
+                    body: 'If you can\'t feel the target muscle working, reduce the weight and slow down. Quality of contraction matters more than load.',
+                  },
+                  {
+                    heading: 'Progressive overload',
+                    body: 'The goal each week is to beat your previous session — more weight, more reps, or better form. Small consistent improvements compound into real results. This is why you log your sets.',
+                  },
+                ].map(({ heading, body }) => (
+                  <div key={heading} className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <p className="text-xs font-semibold mb-0.5" style={{ color: '#C9A84C' }}>{heading}</p>
+                    <p className="text-zinc-400 text-xs leading-relaxed">{body}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-        <div className="divide-y divide-zinc-800">
-          {templates.map(t => (
-            <button
-              key={t.id}
-              onClick={() => selectWorkout(t)}
-              className="w-full flex items-center justify-between px-4 py-4 hover:bg-zinc-800 transition-colors text-left"
-            >
-              <span className="text-white font-medium">{t.name}</span>
-              <ChevronRight className="w-4 h-4 text-zinc-600" />
-            </button>
-          ))}
+
+        {/* Workout selection */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-zinc-800 flex items-center gap-2">
+            <Dumbbell className="w-4 h-4 text-zinc-400" />
+            <h3 className="font-medium text-white text-sm">Select Today&apos;s Workout</h3>
+          </div>
+          <div className="divide-y divide-zinc-800">
+            {templates.map(t => (
+              <button
+                key={t.id}
+                onClick={() => selectWorkout(t)}
+                className="w-full flex items-center justify-between px-4 py-4 hover:bg-zinc-800 transition-colors text-left"
+              >
+                <span className="text-white font-medium">{t.name}</span>
+                <ChevronRight className="w-4 h-4 text-zinc-600" />
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     )

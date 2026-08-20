@@ -17,6 +17,7 @@ interface MacroTarget {
   protein_g: number
   carbs_g: number
   fat_g: number
+  calories_override: number | null
   notes: string | null
 }
 
@@ -66,7 +67,7 @@ function DonutChart({ protein, carbs, fat }: { protein: number; carbs: number; f
   )
 }
 
-const EMPTY_FORM = { protein: '', carbs: '', fat: '', notes: '' }
+const EMPTY_FORM = { protein: '', carbs: '', fat: '', caloriesOverride: '', notes: '' }
 
 export default function MacroTargetBuilder({ clientId, coachId }: Props) {
   const [plans, setPlans] = useState<MacroTarget[]>([])
@@ -83,7 +84,8 @@ export default function MacroTargetBuilder({ clientId, coachId }: Props) {
   const pro  = parseFloat(form.protein) || 0
   const carb = parseFloat(form.carbs)   || 0
   const fatG = parseFloat(form.fat)     || 0
-  const calories = Math.round(pro * 4 + carb * 4 + fatG * 9)
+  const computedCalories = Math.round(pro * 4 + carb * 4 + fatG * 9)
+  const calories = form.caloriesOverride ? parseInt(form.caloriesOverride) || computedCalories : computedCalories
 
   useEffect(() => {
     async function load() {
@@ -99,7 +101,7 @@ export default function MacroTargetBuilder({ clientId, coachId }: Props) {
   }, [clientId])
 
   function loadForm(t: MacroTarget) {
-    setForm({ protein: String(t.protein_g), carbs: String(t.carbs_g), fat: String(t.fat_g), notes: t.notes || '' })
+    setForm({ protein: String(t.protein_g), carbs: String(t.carbs_g), fat: String(t.fat_g), caloriesOverride: t.calories_override ? String(t.calories_override) : '', notes: t.notes || '' })
   }
 
   function selectPlan(t: MacroTarget) {
@@ -148,6 +150,7 @@ export default function MacroTargetBuilder({ clientId, coachId }: Props) {
     setSaving(true)
     const update = {
       protein_g: pro, carbs_g: carb, fat_g: fatG,
+      calories_override: form.caloriesOverride ? parseInt(form.caloriesOverride) || null : null,
       notes: form.notes.trim() || null,
       updated_at: new Date().toISOString(),
     }
@@ -236,8 +239,20 @@ export default function MacroTargetBuilder({ clientId, coachId }: Props) {
             <DonutChart protein={pro} carbs={carb} fat={fatG} />
             <div className="flex-1 space-y-3 min-w-48">
               <div className="rounded-xl px-4 py-3 text-center" style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}>
-                <p className="text-3xl font-bold" style={{ color: '#C9A84C' }}>{calories}</p>
-                <p className="text-zinc-500 text-xs mt-0.5">calories / day</p>
+                <input
+                  type="number"
+                  value={form.caloriesOverride || computedCalories || ''}
+                  onChange={e => setForm(f => ({ ...f, caloriesOverride: e.target.value }))}
+                  placeholder={String(computedCalories)}
+                  className="w-full text-center text-3xl font-bold bg-transparent outline-none border-none"
+                  style={{ color: '#C9A84C' }}
+                />
+                <p className="text-zinc-500 text-xs mt-0.5">
+                  calories / day
+                  {form.caloriesOverride && parseInt(form.caloriesOverride) !== computedCalories && (
+                    <span className="ml-1 text-zinc-600">(calc: {computedCalories})</span>
+                  )}
+                </p>
               </div>
               <div className="space-y-2">
                 {[
