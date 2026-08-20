@@ -276,6 +276,41 @@ export default function WorkoutTracker({ clientId }: Props) {
         </p>
       </div>
 
+      {/* Training Guidelines — collapsed by default during workout */}
+      <div className="rounded-2xl overflow-hidden" style={{ background: '#111', border: '1px solid rgba(201,168,76,0.18)' }}>
+        <button
+          onClick={() => setShowTips(!showTips)}
+          className="w-full flex items-center justify-between px-4 py-3 text-left"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-lg flex items-center justify-center shrink-0" style={{ background: 'rgba(201,168,76,0.12)' }}>
+              <Dumbbell className="w-3 h-3" style={{ color: '#C9A84C' }} />
+            </div>
+            <span className="text-sm font-semibold text-white">Training Guidelines</span>
+          </div>
+          {showTips ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+        </button>
+        {showTips && (
+          <div className="px-4 pb-4 space-y-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+            <div className="pt-3 space-y-2">
+              {[
+                { heading: 'Warm-up sets', body: '1–3 warm-up sets as you approach your working weight. Do NOT count these as working sets.' },
+                { heading: 'Train to failure', body: 'Every working set goes to technical failure — the point where you cannot complete another clean rep. Set yourself up to fail within the rep range.' },
+                { heading: 'Control the eccentric', body: 'Slow and deliberate on the way down (2–3 seconds). Don\'t let gravity do the work.' },
+                { heading: 'Pause and contract', body: 'At the top of each rep, pause and squeeze the target muscle before returning.' },
+                { heading: 'Lift with intention', body: 'Every rep is deliberate. Think about the muscle you\'re training — not the weight in your hands.' },
+                { heading: 'Progressive overload', body: 'Beat your previous session — more weight, more reps, or better form. That\'s why you log.' },
+              ].map(({ heading, body }) => (
+                <div key={heading} className="rounded-xl px-3 py-2" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <p className="text-xs font-semibold mb-0.5" style={{ color: '#C9A84C' }}>{heading}</p>
+                  <p className="text-zinc-400 text-xs leading-relaxed">{body}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       {exercises.map(ex => {
         // Group last sets by session (get most recent session only)
         const lastSessionSets = ex.lastSets.slice(0, 6)
