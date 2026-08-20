@@ -11,6 +11,7 @@ interface MacroTarget {
   protein_g: number
   carbs_g: number
   fat_g: number
+  calories_override: number | null
   notes: string | null
 }
 
@@ -18,7 +19,7 @@ interface Props {
   clientId: string
 }
 
-function DonutChart({ protein, carbs, fat }: { protein: number; carbs: number; fat: number }) {
+function DonutChart({ protein, carbs, fat, caloriesOverride }: { protein: number; carbs: number; fat: number; caloriesOverride?: number | null }) {
   const proteinCal = protein * 4
   const carbsCal = carbs * 4
   const fatCal = fat * 9
@@ -50,7 +51,7 @@ function DonutChart({ protein, carbs, fat }: { protein: number; carbs: number; f
           strokeDasharray={`${f.dash} ${circ}`} strokeDashoffset={f.offset} />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <p className="text-2xl font-bold" style={{ color: '#C9A84C' }}>{Math.round(total)}</p>
+        <p className="text-2xl font-bold" style={{ color: '#C9A84C' }}>{caloriesOverride ?? Math.round(total)}</p>
         <p className="text-zinc-500 text-xs">kcal / day</p>
       </div>
     </div>
@@ -76,6 +77,31 @@ export default function MacroTargetViewer({ clientId }: Props) {
 
   useEffect(() => {
     async function load() {
+      // Try meal plan foods first
+      const { data: mealPlans } = await supabase
+        .from('meal_plan_plans').select('id, name').eq('client_id', clientId).order('display_order').limit(1)
+
+      if (mealPlans && mealPlans.length > 0) {
+        const plan = mealPlans[0]
+        const { data: meals } = await supabase.from('meal_plan_meals').select('id').eq('plan_id', plan.id)
+        if (meals && meals.length > 0) {
+          const { data: foods } = await supabase
+            .from('meal_plan_foods').select('protein_g, carbs_g, fat_g, calories').in('meal_id', meals.map(m => m.id))
+          if (foods && foods.length > 0) {
+            const protein = Math.round(foods.reduce((s, f) => s + (f.protein_g ?? 0), 0))
+            const carbs = Math.round(foods.reduce((s, f) => s + (f.carbs_g ?? 0), 0))
+            const fat = Math.round(foods.reduce((s, f) => s + (f.fat_g ?? 0), 0))
+            const cals = Math.round(foods.reduce((s, f) => s + (f.calories ?? 0), 0))
+            const syntheticPlan: MacroTarget = { id: 'meal_plan', name: plan.name, protein_g: protein, carbs_g: carbs, fat_g: fat, calories_override: cals, notes: null }
+            setPlans([syntheticPlan])
+            setSelectedId('meal_plan')
+            setLoading(false)
+            return
+          }
+        }
+      }
+
+      // Fall back to macro_targets table
       const { data } = await supabase
         .from('macro_targets').select('*').eq('client_id', clientId).order('created_at')
       if (data && data.length > 0) {
@@ -91,7 +117,7 @@ export default function MacroTargetViewer({ clientId }: Props) {
 
   const target = plans.find(p => p.id === selectedId) ?? plans[0]
   const computedCalories = Math.round(target.protein_g * 4 + target.carbs_g * 4 + target.fat_g * 9)
-  const calories = (target as any).calories_override || computedCalories
+  const calories = target.calories_override || computedCalories
 
   return (
     <div className="space-y-4">
@@ -124,7 +150,7 @@ export default function MacroTargetViewer({ clientId }: Props) {
           </h3>
         </div>
 
-        <DonutChart protein={target.protein_g} carbs={target.carbs_g} fat={target.fat_g} />
+        <DonutChart protein={target.protein_g} carbs={target.carbs_g} fat={target.fat_g} caloriesOverride={target.calories_override} />
 
         <div className="grid grid-cols-3 gap-3">
           {[
