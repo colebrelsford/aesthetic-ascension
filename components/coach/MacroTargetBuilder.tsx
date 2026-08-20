@@ -21,7 +21,7 @@ interface MacroTarget {
   notes: string | null
 }
 
-function DonutChart({ protein, carbs, fat }: { protein: number; carbs: number; fat: number }) {
+function DonutChart({ protein, carbs, fat, caloriesOverride }: { protein: number; carbs: number; fat: number; caloriesOverride?: number }) {
   const proteinCal = protein * 4
   const carbsCal = carbs * 4
   const fatCal = fat * 9
@@ -60,7 +60,7 @@ function DonutChart({ protein, carbs, fat }: { protein: number; carbs: number; f
           strokeDasharray={`${fSeg.dash} ${circ}`} strokeDashoffset={fSeg.offset} strokeLinecap="butt" />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <p className="text-xl font-bold" style={{ color: '#C9A84C' }}>{Math.round(total)}</p>
+        <p className="text-xl font-bold" style={{ color: '#C9A84C' }}>{caloriesOverride ?? Math.round(total)}</p>
         <p className="text-zinc-500 text-xs">kcal</p>
       </div>
     </div>
@@ -236,7 +236,7 @@ export default function MacroTargetBuilder({ clientId, coachId }: Props) {
           </div>
 
           <div className="flex items-center gap-6 flex-wrap">
-            <DonutChart protein={pro} carbs={carb} fat={fatG} />
+            <DonutChart protein={pro} carbs={carb} fat={fatG} caloriesOverride={form.caloriesOverride ? parseInt(form.caloriesOverride) || undefined : undefined} />
             <div className="flex-1 space-y-3 min-w-48">
               <div className="rounded-xl px-4 py-3 text-center" style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}>
                 <input
