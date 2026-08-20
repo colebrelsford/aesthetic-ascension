@@ -77,27 +77,55 @@ export default function MacroTargetViewer({ clientId }: Props) {
 
   useEffect(() => {
     async function load() {
-      // Try meal plan foods first
+      // Load all meal plans and compute totals from foods for each
       const { data: mealPlans } = await supabase
-        .from('meal_plan_plans').select('id, name').eq('client_id', clientId).order('display_order').limit(1)
+        .from('meal_plan_plans').select('id, name').eq('client_id', clientId).order('display_order')
 
       if (mealPlans && mealPlans.length > 0) {
-        const plan = mealPlans[0]
-        const { data: meals } = await supabase.from('meal_plan_meals').select('id').eq('plan_id', plan.id)
-        if (meals && meals.length > 0) {
-          const { data: foods } = await supabase
-            .from('meal_plan_foods').select('protein_g, carbs_g, fat_g, calories').in('meal_id', meals.map(m => m.id))
-          if (foods && foods.length > 0) {
-            const protein = Math.round(foods.reduce((s, f) => s + (f.protein_g ?? 0), 0))
-            const carbs = Math.round(foods.reduce((s, f) => s + (f.carbs_g ?? 0), 0))
-            const fat = Math.round(foods.reduce((s, f) => s + (f.fat_g ?? 0), 0))
-            const cals = Math.round(foods.reduce((s, f) => s + (f.calories ?? 0), 0))
-            const syntheticPlan: MacroTarget = { id: 'meal_plan', name: plan.name, protein_g: protein, carbs_g: carbs, fat_g: fat, calories_override: cals, notes: null }
-            setPlans([syntheticPlan])
-            setSelectedId('meal_plan')
-            setLoading(false)
-            return
-          }
+        // Get all meals across all plans in one query
+        const { data: allMeals } = await supabase
+          .from('meal_plan_meals').select('id, plan_id').in('plan_id', mealPlans.map(p => p.id))
+
+        // Get all foods across all those meals in one query
+        const allMealIds = (allMeals || []).map(m => m.id)
+        const { data: allFoods } = allMealIds.length > 0
+          ? await supabase.from('meal_plan_foods').select('meal_id, protein_g, carbs_g, fat_g, calories').in('meal_id', allMealIds)
+          : { data: [] }
+
+        // Build a meal_id → plan_id lookup
+        const mealToPlan: Record<string, string> = {}
+        for (const m of (allMeals || [])) mealToPlan[m.id] = m.plan_id
+
+        // Sum totals per plan
+        const planTotals: Record<string, { cal: number; pro: number; carb: number; fat: number }> = {}
+        for (const f of (allFoods || [])) {
+          const planId = mealToPlan[f.meal_id]
+          if (!planId) continue
+          if (!planTotals[planId]) planTotals[planId] = { cal: 0, pro: 0, carb: 0, fat: 0 }
+          planTotals[planId].cal  += f.calories  ?? 0
+          planTotals[planId].pro  += f.protein_g ?? 0
+          planTotals[planId].carb += f.carbs_g   ?? 0
+          planTotals[planId].fat  += f.fat_g     ?? 0
+        }
+
+        // Only include plans that have foods
+        const syntheticPlans: MacroTarget[] = mealPlans
+          .filter(p => planTotals[p.id])
+          .map(p => ({
+            id: p.id,
+            name: p.name,
+            protein_g: Math.round(planTotals[p.id].pro),
+            carbs_g:   Math.round(planTotals[p.id].carb),
+            fat_g:     Math.round(planTotals[p.id].fat),
+            calories_override: Math.round(planTotals[p.id].cal),
+            notes: null,
+          }))
+
+        if (syntheticPlans.length > 0) {
+          setPlans(syntheticPlans)
+          setSelectedId(syntheticPlans[0].id)
+          setLoading(false)
+          return
         }
       }
 
