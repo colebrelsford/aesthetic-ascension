@@ -78,8 +78,14 @@ export default function ClientCard({ client, coachId, onClick, onFlagToggle, onD
     if (latestCheckin.adherence_nutrition !== null && latestCheckin.adherence_nutrition <= 4) warnings.push(`Nutrition ${latestCheckin.adherence_nutrition}/10`)
   }
 
+  const now = Date.now()
   const phaseWeeks = client.current_phase && client.phase_start_date
-    ? Math.floor((Date.now() - new Date(client.phase_start_date).getTime()) / (7 * 86400000))
+    ? Math.floor((now - new Date(client.phase_start_date).getTime()) / (7 * 86400000))
+    : null
+  const phaseEndMs = (client as any).phase_end_date ? new Date((client as any).phase_end_date).getTime() : null
+  const weeksRemaining = phaseEndMs !== null ? Math.ceil((phaseEndMs - now) / (7 * 86400000)) : null
+  const totalWeeks = client.phase_start_date && phaseEndMs
+    ? Math.round((phaseEndMs - new Date(client.phase_start_date).getTime()) / (7 * 86400000))
     : null
 
   const checkinDaysAgo = latestCheckin
@@ -152,8 +158,15 @@ export default function ClientCard({ client, coachId, onClick, onFlagToggle, onD
       <div className="flex flex-wrap items-center gap-2">
         {client.current_phase && (
           <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: 'rgba(201,168,76,0.1)', color: '#C9A84C', border: '1px solid rgba(201,168,76,0.18)' }}>
-            {client.current_phase}{phaseWeeks !== null && phaseWeeks >= 0 ? ` W${phaseWeeks + 1}` : ''}
+            {client.current_phase}
+            {phaseWeeks !== null && phaseWeeks >= 0 ? ` W${phaseWeeks + 1}${totalWeeks ? `/${totalWeeks}` : ''}` : ''}
           </span>
+          {weeksRemaining !== null && weeksRemaining > 0 && (
+            <span className="text-xs text-zinc-600">{weeksRemaining}w left</span>
+          )}
+          {weeksRemaining !== null && weeksRemaining <= 0 && (
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid rgba(239,68,68,0.2)' }}>Phase ended</span>
+          )}
         )}
         {checkinDaysAgo !== null && (
           <span className="text-xs text-[#555]">

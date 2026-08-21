@@ -14,6 +14,7 @@ export interface Profile {
   created_at: string
   current_phase: string | null
   phase_start_date: string | null
+  phase_end_date: string | null
   phase_notes: string | null
 }
 
