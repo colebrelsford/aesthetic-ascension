@@ -7,10 +7,11 @@ import ClientWorkoutLog from './ClientWorkoutLog'
 
 interface Props {
   clientId: string
+  coachId: string
   plan: Plan | null
 }
 
-export default function ProgressionView({ clientId }: Props) {
+export default function ProgressionView({ clientId, coachId }: Props) {
   return (
     <div className="space-y-4">
       <Tabs defaultValue="log">
@@ -26,7 +27,7 @@ export default function ProgressionView({ clientId }: Props) {
           <ClientWorkoutLog clientId={clientId} />
         </TabsContent>
         <TabsContent value="builder" className="mt-4">
-          <WorkoutBuilder clientId={clientId} />
+          <WorkoutBuilder clientId={clientId} coachId={coachId} />
         </TabsContent>
       </Tabs>
     </div>

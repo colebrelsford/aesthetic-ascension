@@ -203,7 +203,7 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
           <WeightChart logs={weightLogs} clientId={client.id} goalWeight={client.goal_weight_lbs ?? null} onGoalSaved={() => {}} />
         </TabsContent>
         <TabsContent value="progression">
-          <ProgressionView clientId={client.id} plan={plan} />
+          <ProgressionView clientId={client.id} coachId={coachId} plan={plan} />
         </TabsContent>
         <TabsContent value="plans" className="space-y-4">
           <PlanEditor clientId={client.id} plan={plan} onSaved={setPlan} />

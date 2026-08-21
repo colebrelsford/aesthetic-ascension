@@ -6,10 +6,11 @@ import { WorkoutTemplate, WorkoutExercise } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Pencil, Check, X } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Pencil, Check, X, BookOpen, Search } from 'lucide-react'
 
 interface Props {
   clientId: string
+  coachId: string
 }
 
 interface NewExerciseState {
@@ -26,9 +27,19 @@ interface EditExState {
   notes: string
 }
 
+interface LibraryExercise {
+  id: string
+  name: string
+  description: string | null
+  category: string | null
+  default_sets: number | null
+  default_reps: string | null
+  notes: string | null
+}
+
 const inputCls = 'bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 h-8 text-sm'
 
-export default function WorkoutBuilder({ clientId }: Props) {
+export default function WorkoutBuilder({ clientId, coachId }: Props) {
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([])
   const [exercises, setExercises] = useState<Record<string, WorkoutExercise[]>>({})
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
@@ -41,9 +52,19 @@ export default function WorkoutBuilder({ clientId }: Props) {
   const [loading, setLoading] = useState(false)
   const [dragOver, setDragOver] = useState<string | null>(null)
   const dragItem = useRef<{ templateId: string; index: number } | null>(null)
+
+  // Library state
+  const [libraryExercises, setLibraryExercises] = useState<LibraryExercise[]>([])
+  const [showLibrary, setShowLibrary] = useState(false)
+  const [newLib, setNewLib] = useState({ name: '', description: '', category: '', sets: '', reps: '', notes: '' })
+  const [savingLib, setSavingLib] = useState(false)
+  const [searchQuery, setSearchQuery] = useState<Record<string, string>>({})
+  const [showSuggestions, setShowSuggestions] = useState<Record<string, boolean>>({})
+
   const supabase = createClient()
 
   useEffect(() => { load() }, [clientId])
+  useEffect(() => { loadLibrary() }, [coachId])
 
   async function load() {
     const { data: tmpl } = await supabase.from('workout_templates').select('*').eq('client_id', clientId).order('display_order')
@@ -57,6 +78,60 @@ export default function WorkoutBuilder({ clientId }: Props) {
       grouped[ex.template_id].push(ex)
     }
     setExercises(grouped)
+  }
+
+  async function loadLibrary() {
+    const { data } = await supabase.from('coach_exercises').select('*').eq('coach_id', coachId).order('name')
+    if (data) setLibraryExercises(data)
+  }
+
+  async function addLibraryExercise() {
+    if (!newLib.name.trim()) return
+    setSavingLib(true)
+    const { data, error } = await supabase.from('coach_exercises').insert({
+      coach_id: coachId,
+      name: newLib.name.trim(),
+      description: newLib.description || null,
+      category: newLib.category || null,
+      default_sets: newLib.sets ? parseInt(newLib.sets) : null,
+      default_reps: newLib.reps || null,
+      notes: newLib.notes || null,
+    }).select().single()
+    setSavingLib(false)
+    if (error) { toast.error('Failed to save exercise'); return }
+    setLibraryExercises(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+    setNewLib({ name: '', description: '', category: '', sets: '', reps: '', notes: '' })
+    toast.success('Exercise added to library')
+  }
+
+  async function deleteLibraryExercise(id: string) {
+    await supabase.from('coach_exercises').delete().eq('id', id)
+    setLibraryExercises(prev => prev.filter(e => e.id !== id))
+    toast.success('Removed from library')
+  }
+
+  function getSearchQuery(templateId: string) {
+    return searchQuery[templateId] || ''
+  }
+
+  function getSuggestions(templateId: string) {
+    const q = getSearchQuery(templateId).toLowerCase()
+    if (!q) return []
+    return libraryExercises.filter(e => e.name.toLowerCase().includes(q)).slice(0, 6)
+  }
+
+  function selectLibraryExercise(templateId: string, ex: LibraryExercise) {
+    setNewExercise(prev => ({
+      ...prev,
+      [templateId]: {
+        name: ex.name,
+        sets: ex.default_sets?.toString() || '',
+        reps: ex.default_reps || '',
+        notes: ex.notes || '',
+      }
+    }))
+    setSearchQuery(prev => ({ ...prev, [templateId]: '' }))
+    setShowSuggestions(prev => ({ ...prev, [templateId]: false }))
   }
 
   async function addDay() {
@@ -155,6 +230,69 @@ export default function WorkoutBuilder({ clientId }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Exercise Library */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+        <button
+          onClick={() => setShowLibrary(p => !p)}
+          className="w-full flex items-center justify-between px-4 py-3 text-left"
+        >
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4" style={{ color: '#C9A84C' }} />
+            <span className="font-medium text-white text-sm">Exercise Library</span>
+            <span className="text-zinc-500 text-xs">({libraryExercises.length} exercises)</span>
+          </div>
+          {showLibrary ? <ChevronDown className="w-4 h-4 text-zinc-500" /> : <ChevronRight className="w-4 h-4 text-zinc-500" />}
+        </button>
+
+        {showLibrary && (
+          <div className="border-t border-zinc-800 p-4 space-y-4">
+            {/* Create new library exercise */}
+            <div className="space-y-2">
+              <p className="text-zinc-500 text-xs uppercase tracking-wider">Add to library</p>
+              <div className="grid grid-cols-[1fr_60px_80px] gap-2">
+                <Input value={newLib.name} onChange={e => setNewLib(p => ({ ...p, name: e.target.value }))} placeholder="Exercise name *" className={inputCls} />
+                <Input value={newLib.sets} onChange={e => setNewLib(p => ({ ...p, sets: e.target.value }))} placeholder="Sets" className={inputCls} type="number" />
+                <Input value={newLib.reps} onChange={e => setNewLib(p => ({ ...p, reps: e.target.value }))} placeholder="Reps" className={inputCls} />
+              </div>
+              <Input value={newLib.description} onChange={e => setNewLib(p => ({ ...p, description: e.target.value }))} placeholder="Description / how to perform (optional)" className={inputCls} />
+              <div className="flex gap-2">
+                <Input value={newLib.notes} onChange={e => setNewLib(p => ({ ...p, notes: e.target.value }))} placeholder="Notes (optional)" className={`${inputCls} flex-1`} />
+                <Button size="sm" onClick={addLibraryExercise} disabled={savingLib || !newLib.name.trim()} className="bg-white text-black hover:bg-zinc-200 h-8 px-3 text-xs shrink-0">
+                  <Plus className="w-3 h-3 mr-1" /> Save
+                </Button>
+              </div>
+            </div>
+
+            {/* Library list */}
+            {libraryExercises.length > 0 && (
+              <div className="space-y-1">
+                {libraryExercises.map(ex => (
+                  <div key={ex.id} className="flex items-start justify-between gap-2 py-2 border-b border-zinc-800 last:border-0">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-zinc-200 text-sm font-medium">{ex.name}</p>
+                      {(ex.default_sets || ex.default_reps) && (
+                        <p className="text-xs mt-0.5" style={{ color: '#C9A84C' }}>
+                          {ex.default_sets ? `${ex.default_sets} sets` : ''}{ex.default_sets && ex.default_reps ? ' × ' : ''}{ex.default_reps || ''}
+                        </p>
+                      )}
+                      {ex.description && <p className="text-zinc-500 text-xs mt-0.5 italic">{ex.description}</p>}
+                    </div>
+                    <button onClick={() => deleteLibraryExercise(ex.id)} className="text-zinc-600 hover:text-red-400 transition-colors shrink-0 mt-0.5">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {libraryExercises.length === 0 && (
+              <p className="text-zinc-600 text-xs text-center py-2">No exercises yet. Add one above to start your library.</p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Add Workout Day */}
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
         <h3 className="font-medium text-white text-sm mb-3">Add Workout Day</h3>
         <div className="flex gap-2">
@@ -251,6 +389,46 @@ export default function WorkoutBuilder({ clientId }: Props) {
 
               {/* Add exercise row */}
               <div className="pt-2 space-y-2">
+                {/* Library search */}
+                {libraryExercises.length > 0 && (
+                  <div className="relative">
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+                      <input
+                        value={getSearchQuery(template.id)}
+                        onChange={e => {
+                          setSearchQuery(prev => ({ ...prev, [template.id]: e.target.value }))
+                          setShowSuggestions(prev => ({ ...prev, [template.id]: true }))
+                        }}
+                        onFocus={() => setShowSuggestions(prev => ({ ...prev, [template.id]: true }))}
+                        onBlur={() => setTimeout(() => setShowSuggestions(prev => ({ ...prev, [template.id]: false })), 150)}
+                        placeholder="Search exercise library..."
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-8 pr-3 h-8 text-sm text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500"
+                      />
+                    </div>
+                    {showSuggestions[template.id] && getSuggestions(template.id).length > 0 && (
+                      <div className="absolute z-10 top-full mt-1 w-full rounded-xl overflow-hidden shadow-xl" style={{ background: '#1a1a1a', border: '1px solid rgba(201,168,76,0.2)' }}>
+                        {getSuggestions(template.id).map(ex => (
+                          <button
+                            key={ex.id}
+                            onMouseDown={() => selectLibraryExercise(template.id, ex)}
+                            className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-zinc-800 transition-colors"
+                          >
+                            <div>
+                              <p className="text-zinc-100 text-sm">{ex.name}</p>
+                              {ex.description && <p className="text-zinc-500 text-xs">{ex.description}</p>}
+                            </div>
+                            {(ex.default_sets || ex.default_reps) && (
+                              <span className="text-xs shrink-0 ml-3" style={{ color: '#C9A84C' }}>
+                                {ex.default_sets ? `${ex.default_sets}×` : ''}{ex.default_reps || ''}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="grid grid-cols-[1fr_60px_80px] gap-2">
                   <Input value={getNew(template.id).name} onChange={e => setNew(template.id, 'name', e.target.value)} onKeyDown={(e) => e.key === 'Enter' && addExercise(template.id)} placeholder="Exercise name..." className={inputCls} />
                   <Input value={getNew(template.id).sets} onChange={e => setNew(template.id, 'sets', e.target.value)} placeholder="Sets" className={inputCls} type="number" />
