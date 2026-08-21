@@ -84,12 +84,21 @@ export default function MacroTargetViewer({ clientId }: Props) {
       if (mealPlans && mealPlans.length > 0) {
         // Get all meals across all plans in one query
         const { data: allMeals } = await supabase
-          .from('meal_plan_meals').select('id, plan_id').in('plan_id', mealPlans.map(p => p.id))
+          .from('meal_plan_meals')
+          .select('id, plan_id')
+          .eq('client_id', clientId)
+          .in('plan_id', mealPlans.map(p => p.id))
+          .limit(1000)
 
         // Get all foods across all those meals in one query
         const allMealIds = (allMeals || []).map(m => m.id)
         const { data: allFoods } = allMealIds.length > 0
-          ? await supabase.from('meal_plan_foods').select('meal_id, protein_g, carbs_g, fat_g, calories').in('meal_id', allMealIds)
+          ? await supabase
+              .from('meal_plan_foods')
+              .select('meal_id, protein_g, carbs_g, fat_g, calories')
+              .eq('client_id', clientId)
+              .in('meal_id', allMealIds)
+              .limit(5000)
           : { data: [] }
 
         // Build a meal_id → plan_id lookup
