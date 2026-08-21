@@ -198,6 +198,7 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <PhaseTracker clientId={client.id} />
           <WeeklyBrief client={client} />
           <WeightChart logs={weightLogs} clientId={client.id} goalWeight={client.goal_weight_lbs ?? null} onGoalSaved={() => {}} />
         </TabsContent>
@@ -205,7 +206,6 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
           <ProgressionView clientId={client.id} plan={plan} />
         </TabsContent>
         <TabsContent value="plans" className="space-y-4">
-          <PhaseTracker clientId={client.id} />
           <PlanEditor clientId={client.id} plan={plan} onSaved={setPlan} />
         </TabsContent>
         <TabsContent value="checkins">
