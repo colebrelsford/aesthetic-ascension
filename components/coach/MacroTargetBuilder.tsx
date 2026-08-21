@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Flame, Plus, Trash2, X, Check } from 'lucide-react'
+import { Flame, Plus, Trash2, X, Check, RefreshCw } from 'lucide-react'
 
 interface Props {
   clientId: string
@@ -78,6 +78,9 @@ export default function MacroTargetBuilder({ clientId, coachId }: Props) {
   const [newPlanName, setNewPlanName] = useState('')
   const [editingNameId, setEditingNameId] = useState<string | null>(null)
   const [editingName, setEditingName] = useState('')
+  const [mealPlanOptions, setMealPlanOptions] = useState<{ id: string; name: string }[]>([])
+  const [syncing, setSyncing] = useState(false)
+  const [showMealPlanPicker, setShowMealPlanPicker] = useState(false)
   const supabase = createClient()
 
   const selected = plans.find(p => p.id === selectedId) ?? null
@@ -89,13 +92,16 @@ export default function MacroTargetBuilder({ clientId, coachId }: Props) {
 
   useEffect(() => {
     async function load() {
-      const { data } = await supabase
-        .from('macro_targets').select('*').eq('client_id', clientId).order('created_at')
+      const [{ data }, { data: mealPlans }] = await Promise.all([
+        supabase.from('macro_targets').select('*').eq('client_id', clientId).order('created_at'),
+        supabase.from('meal_plan_plans').select('id, name').eq('client_id', clientId).order('display_order'),
+      ])
       if (data && data.length > 0) {
         setPlans(data)
         setSelectedId(data[0].id)
         loadForm(data[0])
       }
+      if (mealPlans) setMealPlanOptions(mealPlans)
     }
     load()
   }, [clientId])
@@ -159,6 +165,30 @@ export default function MacroTargetBuilder({ clientId, coachId }: Props) {
     if (error || !data) { toast.error('Failed to save'); return }
     setPlans(prev => prev.map(p => p.id === selectedId ? data : p))
     toast.success('Targets saved')
+  }
+
+  async function syncFromMealPlan(mealPlanId: string) {
+    if (!selectedId) return
+    setSyncing(true)
+    setShowMealPlanPicker(false)
+    // Get meals for this plan
+    const { data: meals } = await supabase.from('meal_plan_meals').select('id').eq('plan_id', mealPlanId)
+    if (!meals || meals.length === 0) { toast.error('No meals in that plan'); setSyncing(false); return }
+    // Get all foods
+    const { data: foods } = await supabase
+      .from('meal_plan_foods').select('protein_g, carbs_g, fat_g, calories').in('meal_id', meals.map(m => m.id))
+    if (!foods || foods.length === 0) { toast.error('No foods in that plan'); setSyncing(false); return }
+    const pro = Math.round(foods.reduce((s, f) => s + (f.protein_g ?? 0), 0))
+    const carb = Math.round(foods.reduce((s, f) => s + (f.carbs_g ?? 0), 0))
+    const fat = Math.round(foods.reduce((s, f) => s + (f.fat_g ?? 0), 0))
+    const cal = Math.round(foods.reduce((s, f) => s + (f.calories ?? 0), 0))
+    const update = { protein_g: pro, carbs_g: carb, fat_g: fat, calories_override: cal, updated_at: new Date().toISOString() }
+    const { data, error } = await supabase.from('macro_targets').update(update).eq('id', selectedId).select().single()
+    setSyncing(false)
+    if (error || !data) { toast.error('Sync failed'); return }
+    setPlans(prev => prev.map(p => p.id === selectedId ? data : p))
+    setForm(f => ({ ...f, protein: String(pro), carbs: String(carb), fat: String(fat), caloriesOverride: String(cal) }))
+    toast.success('Synced from meal builder')
   }
 
   if (plans.length === 0 && !addingPlan) {
@@ -228,11 +258,36 @@ export default function MacroTargetBuilder({ clientId, coachId }: Props) {
 
       {selected && (
         <div className="rounded-2xl p-5 space-y-5" style={{ background: '#111', border: '1px solid rgba(201,168,76,0.2)' }}>
-          <div className="flex items-center gap-2">
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.15)' }}>
-              <Flame className="w-3.5 h-3.5" style={{ color: '#C9A84C' }} />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.15)' }}>
+                <Flame className="w-3.5 h-3.5" style={{ color: '#C9A84C' }} />
+              </div>
+              <h3 className="font-semibold text-white text-sm">{selected.name} — Daily Targets</h3>
             </div>
-            <h3 className="font-semibold text-white text-sm">{selected.name} — Daily Targets</h3>
+            {mealPlanOptions.length > 0 && (
+              <div className="relative">
+                <button
+                  onClick={() => setShowMealPlanPicker(p => !p)}
+                  disabled={syncing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors disabled:opacity-50"
+                  style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: '#aaa' }}
+                >
+                  <RefreshCw className={`w-3 h-3 ${syncing ? 'animate-spin' : ''}`} />
+                  {syncing ? 'Syncing…' : 'Sync from meal plan'}
+                </button>
+                {showMealPlanPicker && (
+                  <div className="absolute right-0 top-8 z-10 rounded-xl overflow-hidden shadow-xl" style={{ background: '#1a1a1a', border: '1px solid rgba(255,255,255,0.1)', minWidth: 180 }}>
+                    {mealPlanOptions.map(mp => (
+                      <button key={mp.id} onClick={() => syncFromMealPlan(mp.id)}
+                        className="w-full text-left px-4 py-2.5 text-sm text-zinc-300 hover:bg-zinc-800 transition-colors">
+                        {mp.name}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-6 flex-wrap">

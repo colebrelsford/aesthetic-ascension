@@ -500,7 +500,6 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
     if (error || !data) { toast.error('Failed to add food'); return }
     const newFoods = { ...foods, [addingFoodTo]: [...(foods[addingFoodTo] || []), data] }
     setFoods(newFoods)
-    syncMacrosToTarget(newFoods)
     setSelectedFood(null)
     setSearchQuery('')
     setSearchResults([])
@@ -512,7 +511,6 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
     await supabase.from('meal_plan_foods').delete().eq('id', foodId)
     const newFoods = { ...foods, [mealId]: foods[mealId].filter(f => f.id !== foodId) }
     setFoods(newFoods)
-    syncMacrosToTarget(newFoods)
   }
 
   async function updateFoodQty(food: MealPlanFood, mealId: string, newQty: string, displayQty: string, displayUnit: string) {
@@ -532,7 +530,6 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
     await supabase.from('meal_plan_foods').update(update).eq('id', food.id)
     const newFoods = { ...foods, [mealId]: foods[mealId].map(f => f.id === food.id ? { ...f, ...update } : f) }
     setFoods(newFoods)
-    syncMacrosToTarget(newFoods)
     setEditingFood(null)
   }
 
@@ -566,27 +563,7 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
       [toMealId]: [...(foods[toMealId] || []), { ...food, meal_id: toMealId }],
     }
     setFoods(newFoods)
-    syncMacrosToTarget(newFoods)
     toast.success(`Moved to ${meals.find(m => m.id === toMealId)?.name}`)
-  }
-
-  async function syncMacrosToTarget(newFoods: Record<string, MealPlanFood[]>) {
-    const all = Object.values(newFoods).flat()
-    const cal = Math.round(all.reduce((s, f) => s + f.calories, 0))
-    const pro = round1(all.reduce((s, f) => s + f.protein_g, 0))
-    const carb = round1(all.reduce((s, f) => s + f.carbs_g, 0))
-    const fat = round1(all.reduce((s, f) => s + f.fat_g, 0))
-    // Fetch first macro_targets plan to upsert into
-    const { data: targets } = await supabase.from('macro_targets').select('id').eq('client_id', clientId).order('created_at').limit(1)
-    if (targets && targets.length > 0) {
-      await supabase.from('macro_targets').update({
-        protein_g: pro, carbs_g: carb, fat_g: fat, calories_override: cal, updated_at: new Date().toISOString(),
-      }).eq('id', targets[0].id)
-    } else {
-      await supabase.from('macro_targets').insert({
-        client_id: clientId, coach_id: coachId, name: 'Meal Plan', protein_g: pro, carbs_g: carb, fat_g: fat, calories_override: cal,
-      })
-    }
   }
 
   const allFoods = Object.values(foods).flat()
