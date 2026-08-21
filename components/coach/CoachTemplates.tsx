@@ -156,6 +156,7 @@ function WorkoutTemplatesTab({ coachId, clients }: Props) {
   const [showLibrary, setShowLibrary] = useState(false)
   const [newLib, setNewLib] = useState({ name: '', sets: '', reps: '', notes: '' })
   const [savingLib, setSavingLib] = useState(false)
+  const [libSearch, setLibSearch] = useState('')
   const supabase = createClient()
 
   async function loadPrograms() {
@@ -344,20 +345,28 @@ function WorkoutTemplatesTab({ coachId, clients }: Props) {
                 <Plus className="w-3 h-3" /> Save
               </button>
             </div>
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600 pointer-events-none" />
+              <input value={libSearch} onChange={e => setLibSearch(e.target.value)} placeholder="Search library…"
+                className="w-full rounded-lg pl-8 pr-3 h-8 text-xs text-white placeholder:text-zinc-600 outline-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,168,76,0.15)' }} />
+            </div>
             <div className="max-h-48 overflow-y-auto space-y-0.5">
-              {library.map(ex => (
+              {library.filter(ex => !libSearch || ex.name.toLowerCase().includes(libSearch.toLowerCase())).map(ex => (
                 <div key={ex.id} className="flex items-center gap-2 py-1.5 border-b border-zinc-800 last:border-0">
                   <div className="flex-1 min-w-0">
                     <span className="text-zinc-200 text-xs font-medium">{ex.name}</span>
                     {(ex.default_sets || ex.default_reps) && (
                       <span className="ml-2 text-[10px]" style={{ color: '#C9A84C' }}>{ex.default_sets ? `${ex.default_sets}×` : ''}{ex.default_reps || ''}</span>
                     )}
-                    {ex.notes && <span className="ml-2 text-zinc-600 text-[10px] italic truncate">{ex.notes}</span>}
+                    {ex.notes && <p className="text-zinc-600 text-[10px] italic mt-0.5 line-clamp-1">{ex.notes}</p>}
                   </div>
                   <button onClick={() => deleteLibraryExercise(ex.id)} className="text-zinc-700 hover:text-red-400 shrink-0"><Trash2 className="w-3 h-3" /></button>
                 </div>
               ))}
-              {library.length === 0 && <p className="text-zinc-600 text-xs text-center py-2">No exercises yet.</p>}
+              {library.filter(ex => !libSearch || ex.name.toLowerCase().includes(libSearch.toLowerCase())).length === 0 && (
+                <p className="text-zinc-600 text-xs text-center py-2">{libSearch ? 'No matches.' : 'No exercises yet.'}</p>
+              )}
             </div>
           </div>
         )}
