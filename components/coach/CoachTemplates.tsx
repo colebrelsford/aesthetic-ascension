@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Plus, Trash2, ChevronDown, ChevronUp, Dumbbell, Send, Pencil, X, Check, Pill, UtensilsCrossed } from 'lucide-react'
+import { Plus, Trash2, ChevronDown, ChevronUp, Dumbbell, Send, Pencil, X, Check, Pill, UtensilsCrossed, BookOpen, Search } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Profile } from '@/lib/types'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -48,12 +48,78 @@ interface WorkoutProgram {
   days?: WorkoutDay[]
 }
 
-function ExerciseForm({ exercises, onChange }: { exercises: Exercise[]; onChange: (e: Exercise[]) => void }) {
+interface LibraryEx {
+  id: string
+  name: string
+  default_sets: number | null
+  default_reps: string | null
+  notes: string | null
+}
+
+function ExerciseForm({ exercises, onChange, library }: { exercises: Exercise[]; onChange: (e: Exercise[]) => void; library?: LibraryEx[] }) {
+  const [openSearch, setOpenSearch] = useState<number | null>(null)
+  const [searchVal, setSearchVal] = useState<Record<number, string>>({})
+
   function update(i: number, field: keyof Exercise, val: string) {
     onChange(exercises.map((ex, idx) => idx === i ? { ...ex, [field]: val } : ex))
   }
+
+  function getSuggestions(i: number) {
+    const q = (searchVal[i] || '').toLowerCase()
+    if (!q || !library?.length) return []
+    return library.filter(e => e.name.toLowerCase().includes(q)).slice(0, 6)
+  }
+
+  function selectLib(i: number, ex: LibraryEx) {
+    onChange(exercises.map((e, idx) => idx === i ? {
+      ...e,
+      name: ex.name,
+      sets: ex.default_sets?.toString() || e.sets,
+      reps: ex.default_reps || e.reps,
+      notes: ex.notes || e.notes,
+    } : e))
+    setOpenSearch(null)
+    setSearchVal(prev => ({ ...prev, [i]: '' }))
+  }
+
   return (
     <div className="space-y-2">
+      {library && library.length > 0 && (
+        <div className="relative">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-zinc-600 pointer-events-none" />
+            <input
+              value={searchVal[-1] || ''}
+              onChange={e => { setSearchVal(prev => ({ ...prev, [-1]: e.target.value })); setOpenSearch(-1) }}
+              onFocus={() => setOpenSearch(-1)}
+              onBlur={() => setTimeout(() => setOpenSearch(null), 150)}
+              placeholder="Search library to add exercise…"
+              className="w-full bg-transparent border border-zinc-700 rounded-lg pl-7 pr-3 h-7 text-xs text-white placeholder:text-zinc-600 outline-none focus:border-zinc-500"
+            />
+          </div>
+          {openSearch === -1 && getSuggestions(-1).length > 0 && (
+            <div className="absolute z-10 top-full mt-1 w-full rounded-xl overflow-hidden shadow-xl" style={{ background: '#1a1a1a', border: '1px solid rgba(201,168,76,0.2)' }}>
+              {getSuggestions(-1).map(ex => (
+                <button key={ex.id} onMouseDown={() => {
+                  onChange([...exercises, { name: ex.name, sets: ex.default_sets?.toString() || '', reps: ex.default_reps || '', notes: ex.notes || '' }])
+                  setOpenSearch(null)
+                  setSearchVal(prev => ({ ...prev, [-1]: '' }))
+                }} className="w-full flex items-center justify-between px-3 py-2 text-left hover:bg-zinc-800 transition-colors">
+                  <div>
+                    <p className="text-zinc-100 text-xs font-medium">{ex.name}</p>
+                    {ex.notes && <p className="text-zinc-500 text-[10px] truncate max-w-[300px]">{ex.notes}</p>}
+                  </div>
+                  {(ex.default_sets || ex.default_reps) && (
+                    <span className="text-[10px] shrink-0 ml-2" style={{ color: '#C9A84C' }}>
+                      {ex.default_sets ? `${ex.default_sets}×` : ''}{ex.default_reps || ''}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       {exercises.map((ex, i) => (
         <div key={i} className="grid grid-cols-[1fr_56px_56px_1fr_24px] gap-2 items-center">
           <Input value={ex.name} onChange={e => update(i, 'name', e.target.value)} placeholder="Exercise" className="rounded-lg text-white text-xs h-8" style={inputStyle} />
@@ -86,6 +152,10 @@ function WorkoutTemplatesTab({ coachId, clients }: Props) {
   const [editName, setEditName] = useState('')
   const [editDays, setEditDays] = useState<WorkoutDay[]>([])
   const [editSaving, setEditSaving] = useState(false)
+  const [library, setLibrary] = useState<LibraryEx[]>([])
+  const [showLibrary, setShowLibrary] = useState(false)
+  const [newLib, setNewLib] = useState({ name: '', sets: '', reps: '', notes: '' })
+  const [savingLib, setSavingLib] = useState(false)
   const supabase = createClient()
 
   async function loadPrograms() {
@@ -117,6 +187,32 @@ function WorkoutTemplatesTab({ coachId, clients }: Props) {
   }
 
   useEffect(() => { loadPrograms() }, [coachId])
+  useEffect(() => {
+    supabase.from('coach_exercises').select('*').eq('coach_id', coachId).order('name')
+      .then(({ data }) => { if (data) setLibrary(data) })
+  }, [coachId])
+
+  async function addLibraryExercise() {
+    if (!newLib.name.trim()) return
+    setSavingLib(true)
+    const { data, error } = await supabase.from('coach_exercises').insert({
+      coach_id: coachId,
+      name: newLib.name.trim(),
+      default_sets: newLib.sets ? parseInt(newLib.sets) : null,
+      default_reps: newLib.reps || null,
+      notes: newLib.notes || null,
+    }).select().single()
+    setSavingLib(false)
+    if (error) { toast.error('Failed to save'); return }
+    setLibrary(prev => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)))
+    setNewLib({ name: '', sets: '', reps: '', notes: '' })
+    toast.success('Exercise added to library')
+  }
+
+  async function deleteLibraryExercise(id: string) {
+    await supabase.from('coach_exercises').delete().eq('id', id)
+    setLibrary(prev => prev.filter(e => e.id !== id))
+  }
 
   function startEdit(prog: WorkoutProgram) {
     setEditingId(prog.id)
@@ -227,6 +323,46 @@ function WorkoutTemplatesTab({ coachId, clients }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* Exercise Library */}
+      <div className="rounded-xl overflow-hidden" style={cardStyle}>
+        <button onClick={() => setShowLibrary(p => !p)} className="w-full flex items-center justify-between px-4 py-3 text-left">
+          <div className="flex items-center gap-2">
+            <BookOpen className="w-4 h-4" style={{ color: '#C9A84C' }} />
+            <span className="font-medium text-white text-sm">Exercise Library</span>
+            <span className="text-zinc-500 text-xs">({library.length} exercises)</span>
+          </div>
+          {showLibrary ? <ChevronUp className="w-4 h-4 text-zinc-500" /> : <ChevronDown className="w-4 h-4 text-zinc-500" />}
+        </button>
+        {showLibrary && (
+          <div className="border-t border-zinc-800 p-4 space-y-3">
+            <div className="grid grid-cols-[1fr_56px_56px_1fr_80px] gap-2 items-center">
+              <Input value={newLib.name} onChange={e => setNewLib(p => ({ ...p, name: e.target.value }))} placeholder="Exercise name *" className="rounded-lg text-white text-xs h-8" style={inputStyle} />
+              <Input value={newLib.sets} onChange={e => setNewLib(p => ({ ...p, sets: e.target.value }))} placeholder="Sets" className="rounded-lg text-white text-xs h-8" style={inputStyle} type="number" />
+              <Input value={newLib.reps} onChange={e => setNewLib(p => ({ ...p, reps: e.target.value }))} placeholder="Reps" className="rounded-lg text-white text-xs h-8" style={inputStyle} />
+              <Input value={newLib.notes} onChange={e => setNewLib(p => ({ ...p, notes: e.target.value }))} placeholder="Notes" className="rounded-lg text-white text-xs h-8" style={inputStyle} />
+              <button onClick={addLibraryExercise} disabled={savingLib || !newLib.name.trim()} className="flex items-center justify-center gap-1 text-xs px-3 py-1.5 rounded-lg font-medium text-black disabled:opacity-50 h-8" style={{ background: 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}>
+                <Plus className="w-3 h-3" /> Save
+              </button>
+            </div>
+            <div className="max-h-48 overflow-y-auto space-y-0.5">
+              {library.map(ex => (
+                <div key={ex.id} className="flex items-center gap-2 py-1.5 border-b border-zinc-800 last:border-0">
+                  <div className="flex-1 min-w-0">
+                    <span className="text-zinc-200 text-xs font-medium">{ex.name}</span>
+                    {(ex.default_sets || ex.default_reps) && (
+                      <span className="ml-2 text-[10px]" style={{ color: '#C9A84C' }}>{ex.default_sets ? `${ex.default_sets}×` : ''}{ex.default_reps || ''}</span>
+                    )}
+                    {ex.notes && <span className="ml-2 text-zinc-600 text-[10px] italic truncate">{ex.notes}</span>}
+                  </div>
+                  <button onClick={() => deleteLibraryExercise(ex.id)} className="text-zinc-700 hover:text-red-400 shrink-0"><Trash2 className="w-3 h-3" /></button>
+                </div>
+              ))}
+              {library.length === 0 && <p className="text-zinc-600 text-xs text-center py-2">No exercises yet.</p>}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.12)' }}>
@@ -258,7 +394,7 @@ function WorkoutTemplatesTab({ coachId, clients }: Props) {
                   </button>
                 )}
               </div>
-              <ExerciseForm exercises={day.exercises} onChange={exs => setNewDays(newDays.map((d, i) => i === di ? { ...d, exercises: exs } : d))} />
+              <ExerciseForm exercises={day.exercises} onChange={exs => setNewDays(newDays.map((d, i) => i === di ? { ...d, exercises: exs } : d))} library={library} />
             </div>
           ))}
           <button onClick={() => setNewDays([...newDays, { name: '', exercises: [{ name: '', sets: '', reps: '', notes: '' }] }])}
@@ -322,6 +458,7 @@ function WorkoutTemplatesTab({ coachId, clients }: Props) {
                           <ExerciseForm
                             exercises={day.exercises}
                             onChange={exs => setEditDays(editDays.map((d, i) => i === di ? { ...d, exercises: exs } : d))}
+                            library={library}
                           />
                         </div>
                       ))}
