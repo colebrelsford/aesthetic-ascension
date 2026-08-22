@@ -123,6 +123,25 @@ export default function CheckinList({ checkins }: Props) {
                 <Bar value={c.adherence_nutrition} label="Nutrition Adherence" />
                 <Bar value={c.adherence_training} label="Training Adherence" />
               </div>
+
+              {/* Numeric stats */}
+              {(c.sleep_hours != null || c.avg_daily_steps != null || c.water_intake_oz != null || c.meals_missed != null || c.off_plan_meals != null) && (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { label: 'Sleep', val: c.sleep_hours != null ? `${c.sleep_hours} hrs` : null },
+                    { label: 'Daily Steps', val: c.avg_daily_steps != null ? c.avg_daily_steps.toLocaleString() : null },
+                    { label: 'Water', val: c.water_intake_oz != null ? `${c.water_intake_oz} oz` : null },
+                    { label: 'Meals Missed', val: c.meals_missed != null ? String(c.meals_missed) : null },
+                    { label: 'Off-Plan Meals', val: c.off_plan_meals != null ? String(c.off_plan_meals) : null },
+                  ].filter(s => s.val != null).map(({ label, val }) => (
+                    <div key={label} className="rounded-xl py-2.5 px-3 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <p className="text-white font-semibold text-sm">{val}</p>
+                      <p className="text-[#555] text-xs mt-0.5">{label}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="space-y-3">
                 <QA question="Did you stick to the diet?" answer={c.diet_adherence} />
                 <QA question="Cardio adherence" answer={c.cardio_adherence} />
@@ -130,6 +149,8 @@ export default function CheckinList({ checkins }: Props) {
                 <QA question="3 struggles" answer={c.three_struggles} />
                 <QA question="Could have done better" answer={c.could_do_better} />
                 <QA question="Progression" answer={c.progression_notes} />
+                <QA question="Digestion notes" answer={c.digestion_notes} />
+                <QA question="Anything else" answer={c.anything_else} />
               </div>
               <FeedbackBox checkin={c} />
             </div>
