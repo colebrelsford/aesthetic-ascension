@@ -44,6 +44,7 @@ export default function WeightChart({ logs, clientId, goalWeight, onGoalSaved }:
   const data = logs.map(l => ({
     date: new Date(l.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
     weight: l.weight_lbs,
+    note: l.notes,
   }))
 
   const latest = logs[logs.length - 1]?.weight_lbs
@@ -88,6 +89,22 @@ export default function WeightChart({ logs, clientId, goalWeight, onGoalSaved }:
           )}
         </LineChart>
       </ResponsiveContainer>
+
+      {/* Recent logs with notes */}
+      {logs.slice().reverse().slice(0, 10).some(l => l.notes) && (
+        <div className="space-y-1.5 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          <p className="text-[#555] text-xs uppercase tracking-wider">Recent notes</p>
+          {logs.slice().reverse().slice(0, 10).filter(l => l.notes).map(l => (
+            <div key={l.id} className="flex items-start gap-3 text-xs">
+              <span className="text-[#555] shrink-0 pt-0.5">
+                {new Date(l.date + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+              </span>
+              <span className="font-medium shrink-0" style={{ color: '#C9A84C' }}>{l.weight_lbs} lbs</span>
+              <span className="text-[#888] italic">{l.notes}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Goal weight */}
       <div className="flex items-center gap-3 pt-1" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>

@@ -10,6 +10,7 @@ import PlanViewer from './PlanViewer'
 import WeeklyCheckinForm from './WeeklyCheckinForm'
 import CheckinHistory from './CheckinHistory'
 import WorkoutTracker from './WorkoutTracker'
+import ClientWorkoutLog from '../coach/ClientWorkoutLog'
 import MeasurementsLogger from './MeasurementsLogger'
 import ClientSettings from './PasswordChange'
 import MacroTargetViewer from './MacroTargetViewer'
@@ -25,7 +26,7 @@ interface Props {
   profile: Profile
 }
 
-const TAB_CLASS = `text-[#666] text-xs font-medium rounded-lg px-3 py-1.5 transition-all
+const TAB_CLASS = `text-[#666] text-xs font-medium rounded-lg px-3 py-2 transition-all whitespace-nowrap
   data-[state=active]:text-black data-[state=active]:font-semibold`
 
 export default function ClientDashboard({ profile }: Props) {
@@ -109,24 +110,26 @@ export default function ClientDashboard({ profile }: Props) {
 
       <div className="max-w-4xl mx-auto px-4 pb-10">
         <Tabs defaultValue="overview" className="space-y-5">
-          <TabsList className="flex flex-wrap gap-1 p-1.5 rounded-xl h-auto" style={{
-            background: '#111',
-            border: '1px solid rgba(201,168,76,0.12)',
-          }}>
-            {[
-              { value: 'overview', label: 'Overview' },
-              { value: 'progression', label: 'Workouts' },
-              { value: 'plans', label: 'My Plans' },
-              { value: 'measurements', label: 'Measurements' },
-              { value: 'nutrition', label: 'Macro Matching' },
-              { value: 'supplements', label: 'Supplements' },
-              { value: 'checkin', label: 'Check-in' },
-              { value: 'history', label: 'History' },
-              { value: 'settings', label: 'Settings' },
-            ].map(t => (
-              <TabsTrigger key={t.value} value={t.value} className={TAB_CLASS}>{t.label}</TabsTrigger>
-            ))}
-          </TabsList>
+          <div className="overflow-x-auto -mx-4 px-4 pb-1">
+            <TabsList className="flex gap-1 p-1.5 rounded-xl h-auto w-max min-w-full" style={{
+              background: '#111',
+              border: '1px solid rgba(201,168,76,0.12)',
+            }}>
+              {[
+                { value: 'overview', label: 'Overview' },
+                { value: 'progression', label: 'Workouts' },
+                { value: 'plans', label: 'My Plans' },
+                { value: 'measurements', label: 'Measurements' },
+                { value: 'nutrition', label: 'Macro Matching' },
+                { value: 'supplements', label: 'Supplements' },
+                { value: 'checkin', label: 'Check-in' },
+                { value: 'history', label: 'History' },
+                { value: 'settings', label: 'Settings' },
+              ].map(t => (
+                <TabsTrigger key={t.value} value={t.value} className={TAB_CLASS}>{t.label}</TabsTrigger>
+              ))}
+            </TabsList>
+          </div>
 
           <TabsContent value="overview" className="space-y-4">
             <OnboardingChecklist
@@ -213,8 +216,15 @@ export default function ClientDashboard({ profile }: Props) {
             <WeeklyCheckinForm clientId={profile.id} />
           </TabsContent>
 
-          <TabsContent value="history">
-            <CheckinHistory clientId={profile.id} />
+          <TabsContent value="history" className="space-y-6">
+            <div>
+              <h3 className="text-white font-semibold text-sm mb-3">Workout History</h3>
+              <ClientWorkoutLog clientId={profile.id} />
+            </div>
+            <div>
+              <h3 className="text-white font-semibold text-sm mb-3">Check-in History</h3>
+              <CheckinHistory clientId={profile.id} />
+            </div>
           </TabsContent>
 
           <TabsContent value="settings" className="space-y-4">
