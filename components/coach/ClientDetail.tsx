@@ -27,7 +27,7 @@ interface Props {
   onClientUpdate?: (updated: Profile) => void
 }
 
-const TAB = `text-[#666] text-xs font-medium rounded-lg px-3 py-1.5 transition-all
+const TAB = `text-[#666] text-xs font-medium rounded-lg px-3 py-1.5 transition-all whitespace-nowrap
   data-[state=active]:text-black data-[state=active]:font-semibold`
 
 export default function ClientDetail({ client, coachId, onBack, onClientUpdate }: Props) {
@@ -175,7 +175,8 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
       </div>
 
       <Tabs defaultValue="overview" className="space-y-5">
-        <TabsList className="flex flex-wrap gap-1 p-1.5 rounded-xl h-auto" style={{
+        <div className="overflow-x-auto -mx-4 px-4 pb-1">
+        <TabsList className="flex gap-1 p-1.5 rounded-xl h-auto w-max min-w-full" style={{
           background: '#111',
           border: '1px solid rgba(201,168,76,0.12)',
         }}>
@@ -196,6 +197,7 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
             </TabsTrigger>
           ))}
         </TabsList>
+        </div>
 
         <TabsContent value="overview" className="space-y-4">
           <PhaseTracker clientId={client.id} />
