@@ -57,36 +57,55 @@ export default function WorkoutTracker({ clientId }: Props) {
 
     const today = new Date().toISOString().split('T')[0]
 
-    // Load last 3 sessions (excluding today) to show history per exercise
-    const { data: recentSessions } = await supabase
-      .from('workout_sessions')
-      .select('id, session_date')
+    // Load all set_logs for this client from the last 30 days, then group by session
+    // Query directly by client_id so we catch logs saved before workout_sessions existed
+    const { data: allRecentSets } = await supabase
+      .from('set_logs')
+      .select('session_id, exercise_name, set_number, weight_lbs, reps, created_at')
       .eq('client_id', clientId)
-      .neq('session_date', today)
-      .order('session_date', { ascending: false })
-      .limit(3)
+      .order('created_at', { ascending: false })
+      .limit(500)
 
-    let recentSets: { session_id: string; exercise_name: string; set_number: number; weight_lbs: number | null; reps: number | null }[] = []
-    if (recentSessions && recentSessions.length > 0) {
-      const { data: setData } = await supabase
-        .from('set_logs')
-        .select('session_id, exercise_name, set_number, weight_lbs, reps')
-        .in('session_id', recentSessions.map(s => s.id))
-        .order('set_number')
-      recentSets = setData || []
+    // Load sessions to get dates; fall back to created_at date if session_id is missing
+    const sessionIds = [...new Set((allRecentSets || []).map(s => s.session_id).filter(Boolean))]
+    let sessionDateMap: Record<string, string> = {}
+    if (sessionIds.length > 0) {
+      const { data: sessionRows } = await supabase
+        .from('workout_sessions')
+        .select('id, session_date')
+        .in('id', sessionIds)
+      for (const row of (sessionRows || [])) {
+        sessionDateMap[row.id] = row.session_date
+      }
     }
 
-    const exercisesWithHistory: ExerciseWithHistory[] = exs.map(ex => ({
-      ...ex,
-      sessionHistory: (recentSessions || [])
-        .map(session => ({
-          date: session.session_date,
-          sets: recentSets
-            .filter(s => s.session_id === session.id && s.exercise_name === ex.name)
-            .sort((a, b) => a.set_number - b.set_number),
-        }))
-        .filter(sh => sh.sets.length > 0),
+    // For each set_log, determine its date
+    const setsWithDate = (allRecentSets || []).map(s => ({
+      ...s,
+      date: s.session_id && sessionDateMap[s.session_id]
+        ? sessionDateMap[s.session_id]
+        : s.created_at?.split('T')[0] || today,
     }))
+
+    const exercisesWithHistory: ExerciseWithHistory[] = exs.map(ex => {
+      // Get all past sets for this exercise (not today)
+      const pastSets = setsWithDate.filter(s => s.exercise_name === ex.name && s.date !== today)
+      // Group by date
+      const byDate: Record<string, typeof pastSets> = {}
+      for (const s of pastSets) {
+        if (!byDate[s.date]) byDate[s.date] = []
+        byDate[s.date].push(s)
+      }
+      // Sort dates descending, take last 3 sessions
+      const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).slice(0, 3)
+      return {
+        ...ex,
+        sessionHistory: sortedDates.map(date => ({
+          date,
+          sets: byDate[date].sort((a, b) => a.set_number - b.set_number),
+        })),
+      }
+    })
 
     setExercises(exercisesWithHistory)
 
