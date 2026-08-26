@@ -232,6 +232,7 @@ export default function WorkoutTracker({ clientId }: Props) {
                   { heading: 'Warm-up sets', body: 'Do 1–3 warm-up sets as you approach your working weight. These do NOT count as working sets — use lighter weight to prime the movement and protect your joints.' },
                   { heading: 'Only count working sets', body: "Log only your true working sets. If a set was too easy to be challenging, it wasn't a working set." },
                   { heading: 'Train to failure', body: 'Every working set should be taken to technical failure — the point where you cannot complete another rep with good form. Set yourself up to fail within the designated rep range. If you hit the top of the range with gas left in the tank, add weight next session.' },
+                  { heading: 'Rest between sets', body: 'Rest 1.5–2.5 minutes between working sets. Too little rest and you won\'t recover enough to perform the next set properly. Too much and you lose the metabolic stress that drives adaptation.' },
                   { heading: 'Control the eccentric', body: "Be slow and deliberate on the way down (eccentric). A 2–3 second negative puts more stress on the muscle and reduces injury risk. Don't let gravity do the work." },
                   { heading: 'Pause and contract', body: 'At the top of each rep, pause and squeeze the target muscle. Feel the contraction before returning to the start. This is what separates intentional training from just moving weight.' },
                   { heading: 'Lift with intention', body: "Every rep should be deliberate. Think about the muscle you're training — not the weight in your hands. Throwing weight around builds momentum, not muscle." },
@@ -304,6 +305,7 @@ export default function WorkoutTracker({ clientId }: Props) {
               {[
                 { heading: 'Warm-up sets', body: "1–3 warm-up sets as you approach your working weight. Do NOT count these as working sets." },
                 { heading: 'Train to failure', body: "Every working set goes to technical failure — the point where you cannot complete another clean rep." },
+                { heading: 'Rest between sets', body: "Rest 1.5–2.5 minutes between working sets." },
                 { heading: 'Control the eccentric', body: "Slow and deliberate on the way down (2–3 seconds). Don't let gravity do the work." },
                 { heading: 'Pause and contract', body: "At the top of each rep, pause and squeeze the target muscle before returning." },
                 { heading: 'Progressive overload', body: "Beat your previous session — more weight, more reps, or better form. That's why you log." },
