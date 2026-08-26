@@ -275,6 +275,13 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
         )}
       </div>
 
+      <div className="rounded-xl px-4 py-3 flex items-start gap-3" style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}>
+        <span className="text-base shrink-0">📏</span>
+        <p className="text-xs leading-relaxed" style={{ color: '#C9A84C' }}>
+          <span className="font-semibold">Don't forget:</span> log your waist measurement (and any other measurements) in the <span className="font-semibold">Measurements</span> tab before or after submitting your check-in.
+        </p>
+      </div>
+
       <Button type="submit" disabled={loading} className="w-full bg-white text-black hover:bg-zinc-200 font-medium">
         {loading ? 'Submitting…' : 'Submit Check-in'}
       </Button>
