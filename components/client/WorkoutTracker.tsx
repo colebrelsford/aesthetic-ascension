@@ -58,6 +58,7 @@ export default function WorkoutTracker({ clientId }: Props) {
       .from('set_logs')
       .select('session_id, exercise_name, set_number, weight_lbs, reps')
       .in('session_id', pastSessions.map(s => s.id))
+      .eq('client_id', clientId)
 
     const sessionDateMap: Record<string, string> = {}
     for (const s of pastSessions) sessionDateMap[s.id] = s.session_date
