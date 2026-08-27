@@ -42,46 +42,28 @@ export default function WorkoutTracker({ clientId }: Props) {
       .then(({ data }) => { if (data) setTemplates(data) })
   }, [clientId])
 
-  async function selectWorkout(template: WorkoutTemplate) {
-    setLoading(true)
-    setSelectedTemplate(template)
-    setSaved(false)
-
-    const { data: exs } = await supabase
-      .from('workout_exercises')
-      .select('*')
-      .eq('template_id', template.id)
-      .order('display_order')
-
-    if (!exs) { setLoading(false); return }
-
-    // Get local date string (not UTC) so timezone doesn't shift the day
-    const now = new Date()
-    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-
-    // Load last 10 past sessions (not today) for this client
+  async function loadHistory(currentSessionId: string, exs: { id: string; name: string }[]) {
+    // Load all sessions except the current one, most recent first
     const { data: pastSessions } = await supabase
       .from('workout_sessions')
       .select('id, session_date')
       .eq('client_id', clientId)
-      .neq('session_date', today)
+      .neq('id', currentSessionId)
       .order('session_date', { ascending: false })
       .limit(10)
 
-    let allRecentSets: { session_id: string; exercise_name: string; set_number: number; weight_lbs: number | null; reps: number | null }[] = []
-    if (pastSessions && pastSessions.length > 0) {
-      const { data: setData } = await supabase
-        .from('set_logs')
-        .select('session_id, exercise_name, set_number, weight_lbs, reps')
-        .in('session_id', pastSessions.map(s => s.id))
-      allRecentSets = setData || []
-    }
+    if (!pastSessions || pastSessions.length === 0) return
+
+    const { data: setData } = await supabase
+      .from('set_logs')
+      .select('session_id, exercise_name, set_number, weight_lbs, reps')
+      .in('session_id', pastSessions.map(s => s.id))
 
     const sessionDateMap: Record<string, string> = {}
-    for (const s of (pastSessions || [])) sessionDateMap[s.id] = s.session_date
+    for (const s of pastSessions) sessionDateMap[s.id] = s.session_date
 
-    const exercisesWithHistory: ExerciseWithHistory[] = exs.map(ex => {
-      const pastSets = allRecentSets.filter(s => s.exercise_name === ex.name)
+    setExercises(prev => prev.map(ex => {
+      const pastSets = (setData || []).filter(s => s.exercise_name === ex.name)
       const byDate: Record<string, typeof pastSets> = {}
       for (const s of pastSets) {
         const date = sessionDateMap[s.session_id]
@@ -97,34 +79,51 @@ export default function WorkoutTracker({ clientId }: Props) {
           sets: byDate[date].sort((a, b) => a.set_number - b.set_number),
         })),
       }
-    })
+    }))
+  }
 
-    setExercises(exercisesWithHistory)
+  async function selectWorkout(template: WorkoutTemplate) {
+    setLoading(true)
+    setSelectedTemplate(template)
+    setSaved(false)
 
-    // Initialize empty sets for today
+    const { data: exs } = await supabase
+      .from('workout_exercises')
+      .select('*')
+      .eq('template_id', template.id)
+      .order('display_order')
+
+    if (!exs) { setLoading(false); return }
+
+    // Set exercises with empty history initially
+    setExercises(exs.map(ex => ({ ...ex, sessionHistory: [] })))
+
+    // Initialize empty sets
     const initSets: Record<string, { weight: string; reps: string }[]> = {}
-    for (const ex of exs) {
-      initSets[ex.id] = [{ weight: '', reps: '' }]
-    }
+    for (const ex of exs) initSets[ex.id] = [{ weight: '', reps: '' }]
     setSets(initSets)
 
-    // Get or create today's session (today already computed above as local date)
+    // Get local date string (not UTC) to match how sessions are stored
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+    // Get or create today's session
+    let currentSessionId: string | null = null
     const { data: existing } = await supabase
       .from('workout_sessions')
       .select('id')
       .eq('client_id', clientId)
       .eq('session_date', today)
-      .single()
+      .maybeSingle()
 
     if (existing) {
+      currentSessionId = existing.id
       setSessionId(existing.id)
-      // Load any sets already logged today
+      // Load any sets already saved for this session
       const { data: todaySets } = await supabase
         .from('set_logs')
         .select('*')
         .eq('session_id', existing.id)
-        .eq('client_id', clientId)
-
       if (todaySets && todaySets.length > 0) {
         const loadedSets: Record<string, { weight: string; reps: string }[]> = {}
         for (const ex of exs) {
@@ -143,10 +142,16 @@ export default function WorkoutTracker({ clientId }: Props) {
         .insert({ client_id: clientId, session_date: today })
         .select()
         .single()
-      if (newSession) setSessionId(newSession.id)
+      if (newSession) {
+        currentSessionId = newSession.id
+        setSessionId(newSession.id)
+      }
     }
 
     setLoading(false)
+
+    // Load history after session is established (excludes current session)
+    if (currentSessionId) loadHistory(currentSessionId, exs)
   }
 
   function addSet(exerciseId: string) {
@@ -189,6 +194,8 @@ export default function WorkoutTracker({ clientId }: Props) {
     setSaving(false)
     setSaved(true)
     toast.success('Workout saved!')
+    // Refresh history so it shows updated sets immediately
+    if (sessionId) loadHistory(sessionId, exercises)
   }
 
   function formatDate(dateStr: string) {
