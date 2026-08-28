@@ -59,6 +59,8 @@ export default function WorkoutBuilder({ clientId, coachId }: Props) {
   const [newLib, setNewLib] = useState({ name: '', description: '', category: '', sets: '', reps: '', notes: '' })
   const [savingLib, setSavingLib] = useState(false)
   const [libSearch, setLibSearch] = useState('')
+  const [editingLibId, setEditingLibId] = useState<string | null>(null)
+  const [editLib, setEditLib] = useState({ name: '', description: '', sets: '', reps: '', notes: '' })
   const [searchQuery, setSearchQuery] = useState<Record<string, string>>({})
   const [showSuggestions, setShowSuggestions] = useState<Record<string, boolean>>({})
 
@@ -109,6 +111,39 @@ export default function WorkoutBuilder({ clientId, coachId }: Props) {
     await supabase.from('coach_exercises').delete().eq('id', id)
     setLibraryExercises(prev => prev.filter(e => e.id !== id))
     toast.success('Removed from library')
+  }
+
+  function startEditLib(ex: LibraryExercise) {
+    setEditingLibId(ex.id)
+    setEditLib({
+      name: ex.name,
+      description: ex.description || '',
+      sets: ex.default_sets?.toString() || '',
+      reps: ex.default_reps || '',
+      notes: ex.notes || '',
+    })
+  }
+
+  async function saveEditLib() {
+    if (!editingLibId || !editLib.name.trim()) return
+    setSavingLib(true)
+    const { data, error } = await supabase
+      .from('coach_exercises')
+      .update({
+        name: editLib.name.trim(),
+        description: editLib.description || null,
+        default_sets: editLib.sets ? parseInt(editLib.sets) : null,
+        default_reps: editLib.reps || null,
+        notes: editLib.notes || null,
+      })
+      .eq('id', editingLibId)
+      .select()
+      .single()
+    setSavingLib(false)
+    if (error) { toast.error('Failed to update exercise'); return }
+    setLibraryExercises(prev => prev.map(e => e.id === editingLibId ? data : e).sort((a, b) => a.name.localeCompare(b.name)))
+    setEditingLibId(null)
+    toast.success('Exercise updated')
   }
 
   function getSearchQuery(templateId: string) {
@@ -273,21 +308,44 @@ export default function WorkoutBuilder({ clientId, coachId }: Props) {
                     className="w-full rounded-lg pl-8 pr-3 h-8 text-sm text-white placeholder:text-zinc-600 outline-none"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,168,76,0.15)' }} />
                 </div>
-                <div className="space-y-1 max-h-60 overflow-y-auto">
+                <div className="space-y-1 max-h-72 overflow-y-auto">
                   {libraryExercises.filter(ex => !libSearch || ex.name.toLowerCase().includes(libSearch.toLowerCase())).map(ex => (
-                    <div key={ex.id} className="flex items-start justify-between gap-2 py-2 border-b border-zinc-800 last:border-0">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-zinc-200 text-sm font-medium">{ex.name}</p>
-                        {(ex.default_sets || ex.default_reps) && (
-                          <p className="text-xs mt-0.5" style={{ color: '#C9A84C' }}>
-                            {ex.default_sets ? `${ex.default_sets} sets` : ''}{ex.default_sets && ex.default_reps ? ' × ' : ''}{ex.default_reps || ''}
-                          </p>
-                        )}
-                        {ex.description && <p className="text-zinc-500 text-xs mt-0.5 italic">{ex.description}</p>}
-                      </div>
-                      <button onClick={() => deleteLibraryExercise(ex.id)} className="text-zinc-600 hover:text-red-400 transition-colors shrink-0 mt-0.5">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                    <div key={ex.id} className="py-2 border-b border-zinc-800 last:border-0">
+                      {editingLibId === ex.id ? (
+                        <div className="space-y-2">
+                          <div className="grid grid-cols-[1fr_60px_80px] gap-2">
+                            <Input value={editLib.name} onChange={e => setEditLib(p => ({ ...p, name: e.target.value }))} placeholder="Exercise name *" className={inputCls} />
+                            <Input value={editLib.sets} onChange={e => setEditLib(p => ({ ...p, sets: e.target.value }))} placeholder="Sets" className={inputCls} type="number" />
+                            <Input value={editLib.reps} onChange={e => setEditLib(p => ({ ...p, reps: e.target.value }))} placeholder="Reps" className={inputCls} />
+                          </div>
+                          <Input value={editLib.description} onChange={e => setEditLib(p => ({ ...p, description: e.target.value }))} placeholder="Description / how to perform" className={inputCls} />
+                          <div className="flex gap-2">
+                            <Input value={editLib.notes} onChange={e => setEditLib(p => ({ ...p, notes: e.target.value }))} placeholder="Notes" className={`${inputCls} flex-1`} />
+                            <Button size="sm" onClick={saveEditLib} disabled={savingLib || !editLib.name.trim()} className="bg-white text-black hover:bg-zinc-200 h-8 px-3 text-xs shrink-0">Save</Button>
+                            <Button size="sm" variant="ghost" onClick={() => setEditingLibId(null)} className="h-8 px-2 text-xs text-zinc-500 shrink-0">Cancel</Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-zinc-200 text-sm font-medium">{ex.name}</p>
+                            {(ex.default_sets || ex.default_reps) && (
+                              <p className="text-xs mt-0.5" style={{ color: '#C9A84C' }}>
+                                {ex.default_sets ? `${ex.default_sets} sets` : ''}{ex.default_sets && ex.default_reps ? ' × ' : ''}{ex.default_reps || ''}
+                              </p>
+                            )}
+                            {ex.description && <p className="text-zinc-500 text-xs mt-0.5 italic">{ex.description}</p>}
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0 mt-0.5">
+                            <button onClick={() => startEditLib(ex)} className="text-zinc-600 hover:text-zinc-300 transition-colors">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => deleteLibraryExercise(ex.id)} className="text-zinc-600 hover:text-red-400 transition-colors">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {libraryExercises.filter(ex => !libSearch || ex.name.toLowerCase().includes(libSearch.toLowerCase())).length === 0 && libSearch && (
