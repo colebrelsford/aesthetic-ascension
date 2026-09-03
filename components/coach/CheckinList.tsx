@@ -42,6 +42,10 @@ function FeedbackBox({ checkin }: { checkin: WeeklyCheckin }) {
   const [saving, setSaving] = useState(false)
   const supabase = createClient()
 
+  useEffect(() => {
+    setFeedback(checkin.coach_feedback || '')
+  }, [checkin.coach_feedback])
+
   async function save() {
     setSaving(true)
     const { error } = await supabase

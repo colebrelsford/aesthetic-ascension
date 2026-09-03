@@ -27,7 +27,7 @@ const cardStyle = { background: '#111', border: '1px solid rgba(201,168,76,0.15)
 const inputStyle = { background: 'rgba(255,255,255,0.04)', borderColor: 'rgba(201,168,76,0.2)' }
 
 export default function MeasurementsLogger({ clientId }: Props) {
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState(() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}` })
   const [values, setValues] = useState<Record<string, string>>({})
   const [history, setHistory] = useState<Measurement[]>([])
   const [saving, setSaving] = useState(false)
