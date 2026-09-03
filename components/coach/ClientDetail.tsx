@@ -211,7 +211,7 @@ export default function ClientDetail({ client, coachId, onBack, onClientUpdate }
           <PlanEditor clientId={client.id} plan={plan} onSaved={setPlan} />
         </TabsContent>
         <TabsContent value="checkins">
-          <CheckinList checkins={checkins} />
+          <CheckinList checkins={checkins} clientId={client.id} />
         </TabsContent>
         <TabsContent value="photos">
           <PhotoComparison photos={photos} />

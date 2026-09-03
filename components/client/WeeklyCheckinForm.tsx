@@ -133,9 +133,10 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
     e.preventDefault()
     setLoading(true)
 
-    const weekStart = new Date()
-    weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-    const weekStartStr = weekStart.toISOString().split('T')[0]
+    // Use local date to avoid UTC timezone shifting the week_start day
+    const now = new Date()
+    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay())
+    const weekStartStr = `${weekStart.getFullYear()}-${String(weekStart.getMonth() + 1).padStart(2, '0')}-${String(weekStart.getDate()).padStart(2, '0')}`
 
     const { data: checkin, error: checkinError } = await supabase
       .from('weekly_checkins')
@@ -152,14 +153,14 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
         water_intake_oz: waterIntake ? Math.round(parseFloat(waterIntake) * 128) : null,
         meals_missed: mealsMissed ? parseInt(mealsMissed) : null,
         off_plan_meals: offPlanMeals ? parseInt(offPlanMeals) : null,
-        diet_adherence: dietAdherence,
-        cardio_adherence: cardioAdherence,
-        digestion_notes: digestionNotes || null,
-        three_wins: threeWins,
-        three_struggles: threeStruggles,
-        could_do_better: couldDoBetter,
-        progression_notes: progressionNotes,
-        anything_else: anythingElse || null,
+        diet_adherence: dietAdherence.trim() || null,
+        cardio_adherence: cardioAdherence.trim() || null,
+        digestion_notes: digestionNotes.trim() || null,
+        three_wins: threeWins.trim() || null,
+        three_struggles: threeStruggles.trim() || null,
+        could_do_better: couldDoBetter.trim() || null,
+        progression_notes: progressionNotes.trim() || null,
+        anything_else: anythingElse.trim() || null,
       }, { onConflict: 'client_id,week_start' })
       .select().single()
 

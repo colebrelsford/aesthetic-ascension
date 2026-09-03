@@ -1,13 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { WeeklyCheckin } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
-import { ClipboardList, MessageSquare, ChevronDown, ChevronRight } from 'lucide-react'
+import { ClipboardList, MessageSquare, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface Props {
   checkins: WeeklyCheckin[]
+  clientId: string
 }
 
 const cardStyle = { background: '#111', border: '1px solid rgba(201,168,76,0.15)' }
@@ -79,19 +80,59 @@ function FeedbackBox({ checkin }: { checkin: WeeklyCheckin }) {
   )
 }
 
-export default function CheckinList({ checkins }: Props) {
+export default function CheckinList({ checkins: initialCheckins, clientId }: Props) {
+  const [checkins, setCheckins] = useState<WeeklyCheckin[]>(initialCheckins)
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+  const [refreshing, setRefreshing] = useState(false)
+  const supabase = createClient()
+
+  // Auto-expand the most recent check-in
+  useEffect(() => {
+    if (checkins.length > 0 && Object.keys(expanded).length === 0) {
+      setExpanded({ [checkins[0].id]: true })
+    }
+  }, [checkins])
+
+  // Sync if parent passes new checkins (e.g. initial load)
+  useEffect(() => {
+    setCheckins(initialCheckins)
+  }, [initialCheckins])
+
+  async function refresh() {
+    setRefreshing(true)
+    const { data } = await supabase
+      .from('weekly_checkins')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('week_start', { ascending: false })
+    if (data) {
+      setCheckins(data)
+      // Auto-expand latest after refresh
+      if (data.length > 0) setExpanded({ [data[0].id]: true })
+      toast.success('Check-ins refreshed')
+    }
+    setRefreshing(false)
+  }
 
   if (checkins.length === 0) {
     return (
       <div className="rounded-2xl p-8 text-center text-[#555] text-sm" style={cardStyle}>
         No check-ins submitted yet.
+        <button onClick={refresh} className="block mx-auto mt-3 text-xs text-zinc-600 hover:text-zinc-400 flex items-center gap-1.5 justify-center">
+          <RefreshCw className="w-3 h-3" /> Refresh
+        </button>
       </div>
     )
   }
 
   return (
     <div className="space-y-3">
+      <div className="flex justify-end">
+        <button onClick={refresh} disabled={refreshing} className="flex items-center gap-1.5 text-xs text-zinc-600 hover:text-zinc-400 transition-colors">
+          <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
+          {refreshing ? 'Refreshing…' : 'Refresh'}
+        </button>
+      </div>
       {checkins.map(c => (
         <div key={c.id} className="rounded-2xl overflow-hidden" style={cardStyle}>
           <button
