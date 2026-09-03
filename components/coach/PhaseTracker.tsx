@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { Target, Save } from 'lucide-react'
+import { Target, Save, RotateCcw } from 'lucide-react'
 
 const PHASES = ['Growth / Bulk', 'Mini Cut', 'Fat Loss', 'Maintenance / Hold', 'Contest Prep', 'Recomp']
 
@@ -13,30 +13,36 @@ interface Props {
 
 export default function PhaseTracker({ clientId }: Props) {
   const [phase, setPhase] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
   const [notes, setNotes] = useState('')
+  const [weekStartDate, setWeekStartDate] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [resetting, setResetting] = useState(false)
   const supabase = createClient()
 
   useEffect(() => {
-    supabase.from('profiles').select('current_phase,phase_start_date,phase_end_date,phase_notes').eq('id', clientId).single()
+    supabase
+      .from('profiles')
+      .select('current_phase, phase_start_date, phase_notes')
+      .eq('id', clientId)
+      .single()
       .then(({ data }) => {
         if (data) {
           setPhase(data.current_phase || '')
-          setStartDate(data.phase_start_date || '')
-          setEndDate((data as any).phase_end_date || '')
+          setWeekStartDate(data.phase_start_date || null)
           setNotes(data.phase_notes || '')
         }
       })
   }, [clientId])
 
+  // Current week number — calculated from phase_start_date
+  const currentWeek = weekStartDate
+    ? Math.floor((Date.now() - new Date(weekStartDate).getTime()) / (7 * 86400000)) + 1
+    : null
+
   async function save() {
     setSaving(true)
     const { error } = await supabase.from('profiles').update({
       current_phase: phase || null,
-      phase_start_date: startDate || null,
-      phase_end_date: endDate || null,
       phase_notes: notes || null,
     }).eq('id', clientId)
     setSaving(false)
@@ -44,26 +50,17 @@ export default function PhaseTracker({ clientId }: Props) {
     toast.success('Phase saved!')
   }
 
-  // Timeline calculations
-  const now = Date.now()
-  const startMs = startDate ? new Date(startDate).getTime() : null
-  const endMs = endDate ? new Date(endDate).getTime() : null
-
-  const weeksIn = startMs !== null
-    ? Math.floor((now - startMs) / (7 * 86400000))
-    : null
-
-  const totalWeeks = startMs !== null && endMs !== null
-    ? Math.round((endMs - startMs) / (7 * 86400000))
-    : null
-
-  const weeksRemaining = endMs !== null
-    ? Math.ceil((endMs - now) / (7 * 86400000))
-    : null
-
-  const progressPct = startMs !== null && endMs !== null && endMs > startMs
-    ? Math.min(100, Math.max(0, Math.round(((now - startMs) / (endMs - startMs)) * 100)))
-    : null
+  async function resetWeekCounter() {
+    setResetting(true)
+    const today = new Date().toISOString().split('T')[0]
+    const { error } = await supabase.from('profiles').update({
+      phase_start_date: today,
+    }).eq('id', clientId)
+    setResetting(false)
+    if (error) { toast.error('Failed to reset'); return }
+    setWeekStartDate(today)
+    toast.success('Week counter reset to Week 1')
+  }
 
   const cardStyle = { background: '#111', border: '1px solid rgba(201,168,76,0.15)' }
   const inputStyle = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(201,168,76,0.15)', color: 'white' }
@@ -75,12 +72,7 @@ export default function PhaseTracker({ clientId }: Props) {
           <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: 'rgba(201,168,76,0.12)' }}>
             <Target className="w-3.5 h-3.5" style={{ color: '#C9A84C' }} />
           </div>
-          <h3 className="font-semibold text-white text-sm">Phase Timeline</h3>
-          {phase && weeksIn !== null && weeksIn >= 0 && (
-            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: 'rgba(201,168,76,0.12)', color: '#C9A84C' }}>
-              Week {weeksIn + 1}{totalWeeks ? ` of ${totalWeeks}` : ''}
-            </span>
-          )}
+          <h3 className="font-semibold text-white text-sm">Phase Tracker</h3>
         </div>
         <button onClick={save} disabled={saving}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-black disabled:opacity-50"
@@ -89,68 +81,49 @@ export default function PhaseTracker({ clientId }: Props) {
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <div className="space-y-1.5">
-          <label className="text-[#666] text-xs uppercase tracking-wider">Phase</label>
-          <select value={phase} onChange={e => setPhase(e.target.value)}
-            className="w-full rounded-xl px-3 py-2 text-sm" style={inputStyle}>
-            <option value="">— Not set —</option>
-            {PHASES.map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
+      {/* Week counter display */}
+      <div className="flex items-center gap-4">
+        <div className="rounded-2xl px-6 py-4 text-center flex-1" style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}>
+          {currentWeek !== null && currentWeek > 0 ? (
+            <>
+              <p className="text-4xl font-bold" style={{ color: '#C9A84C' }}>{currentWeek}</p>
+              <p className="text-zinc-500 text-xs mt-1 uppercase tracking-wider">Current Week</p>
+              {weekStartDate && (
+                <p className="text-zinc-600 text-xs mt-1">
+                  Started {new Date(weekStartDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-2xl font-bold text-zinc-600">—</p>
+              <p className="text-zinc-600 text-xs mt-1">No counter started</p>
+            </>
+          )}
         </div>
-        <div className="space-y-1.5">
-          <label className="text-[#666] text-xs uppercase tracking-wider">Start date</label>
-          <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-            className="w-full rounded-xl px-3 py-2 text-sm" style={inputStyle} />
-        </div>
-        <div className="space-y-1.5">
-          <label className="text-[#666] text-xs uppercase tracking-wider">End date</label>
-          <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-            className="w-full rounded-xl px-3 py-2 text-sm" style={inputStyle} />
-        </div>
+        <button
+          onClick={resetWeekCounter}
+          disabled={resetting}
+          className="flex flex-col items-center gap-1.5 px-4 py-3 rounded-2xl text-xs font-medium transition-colors disabled:opacity-50"
+          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: '#888' }}
+          title="Reset to Week 1"
+        >
+          <RotateCcw className="w-4 h-4" />
+          <span>{resetting ? 'Resetting…' : 'Reset to\nWeek 1'}</span>
+        </button>
       </div>
 
-      {/* Progress bar — only when both dates set */}
-      {progressPct !== null && startDate && endDate && (
-        <div className="space-y-2">
-          <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-            <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${progressPct}%`, background: 'linear-gradient(90deg, #C9A84C, #E8C97A)' }}
-            />
-          </div>
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-zinc-500">{progressPct}% complete</span>
-            <div className="flex items-center gap-3">
-              {weeksIn !== null && weeksIn >= 0 && (
-                <span style={{ color: '#C9A84C' }}>Week {weeksIn + 1}</span>
-              )}
-              {weeksRemaining !== null && (
-                <span className="text-zinc-500">
-                  {weeksRemaining > 0 ? `${weeksRemaining}w remaining` : 'Phase complete'}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Phase selector */}
+      <div className="space-y-1.5">
+        <label className="text-[#666] text-xs uppercase tracking-wider">Phase</label>
+        <select value={phase} onChange={e => setPhase(e.target.value)}
+          className="w-full rounded-xl px-3 py-2 text-sm" style={inputStyle}>
+          <option value="">— Not set —</option>
+          {PHASES.map(p => <option key={p} value={p}>{p}</option>)}
+        </select>
+      </div>
 
-      {/* Stats row — only when dates are set */}
-      {(weeksIn !== null || totalWeeks !== null) && (
-        <div className="grid grid-cols-3 gap-2">
-          {[
-            { label: 'Weeks in', val: weeksIn !== null && weeksIn >= 0 ? `${weeksIn + 1}` : '—' },
-            { label: 'Total weeks', val: totalWeeks !== null ? `${totalWeeks}` : '—' },
-            { label: 'Weeks left', val: weeksRemaining !== null ? (weeksRemaining > 0 ? `${weeksRemaining}` : '0') : '—' },
-          ].map(({ label, val }) => (
-            <div key={label} className="rounded-xl py-2.5 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
-              <p className="text-lg font-bold text-white">{val}</p>
-              <p className="text-zinc-600 text-xs mt-0.5">{label}</p>
-            </div>
-          ))}
-        </div>
-      )}
-
+      {/* Phase notes */}
       <div className="space-y-1.5">
         <label className="text-[#666] text-xs uppercase tracking-wider">Phase notes</label>
         <textarea value={notes} onChange={e => setNotes(e.target.value)}
