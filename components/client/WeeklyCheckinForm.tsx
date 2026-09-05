@@ -140,7 +140,7 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
 
     const { data: checkin, error: checkinError } = await supabase
       .from('weekly_checkins')
-      .upsert({
+      .insert({
         client_id: clientId,
         week_start: weekStartStr,
         energy_level: energy,
@@ -161,7 +161,7 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
         could_do_better: couldDoBetter.trim() || null,
         progression_notes: progressionNotes.trim() || null,
         anything_else: anythingElse.trim() || null,
-      }, { onConflict: 'client_id,week_start' })
+      })
       .select().single()
 
     if (checkinError) {

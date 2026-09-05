@@ -149,7 +149,9 @@ export default function CheckinList({ checkins: initialCheckins, clientId }: Pro
               </div>
               <div className="text-left">
                 <span className="font-semibold text-white text-sm">
-                  Week of {new Date(c.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
+                  {c.created_at
+                    ? new Date(c.created_at).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+                    : `Week of ${new Date(c.week_start + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}`}
                 </span>
                 {c.coach_feedback && (
                   <p className="text-xs mt-0.5" style={{ color: '#C9A84C' }}>Feedback left ✓</p>
