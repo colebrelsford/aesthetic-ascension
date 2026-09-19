@@ -165,7 +165,7 @@ export default function WeeklyCheckinForm({ clientId }: Props) {
       .select().single()
 
     if (checkinError) {
-      toast.error('Failed to submit check-in')
+      toast.error(`Check-in failed: ${checkinError.message}`)
       setLoading(false)
       return
     }
