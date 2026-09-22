@@ -42,6 +42,31 @@ export default function WorkoutTracker({ clientId }: Props) {
       .then(({ data }) => { if (data) setTemplates(data) })
   }, [clientId])
 
+  // Auto-restore draft when templates load
+  useEffect(() => {
+    if (templates.length === 0 || selectedTemplate) return
+    try {
+      const raw = localStorage.getItem(`aa_draft_${clientId}`)
+      if (!raw) return
+      const draft = JSON.parse(raw)
+      const now = new Date()
+      const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+      if (draft.date !== today) { localStorage.removeItem(`aa_draft_${clientId}`); return }
+      const template = templates.find(t => t.id === draft.templateId)
+      if (template) selectWorkout(template, draft.sets)
+    } catch {}
+  }, [templates])
+
+  // Auto-save draft to localStorage whenever sets change
+  useEffect(() => {
+    if (!selectedTemplate || Object.keys(sets).length === 0) return
+    try {
+      const now = new Date()
+      const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
+      localStorage.setItem(`aa_draft_${clientId}`, JSON.stringify({ templateId: selectedTemplate.id, date: today, sets }))
+    } catch {}
+  }, [sets, selectedTemplate, clientId])
+
   async function loadHistory(currentSessionId: string, exs: { id: string; name: string }[]) {
     // Load all sessions except the current one, most recent first
     const { data: pastSessions } = await supabase
@@ -83,7 +108,7 @@ export default function WorkoutTracker({ clientId }: Props) {
     }))
   }
 
-  async function selectWorkout(template: WorkoutTemplate) {
+  async function selectWorkout(template: WorkoutTemplate, draftSets?: Record<string, { weight: string; reps: string }[]>) {
     setLoading(true)
     setSelectedTemplate(template)
     setSaved(false)
@@ -137,6 +162,16 @@ export default function WorkoutTracker({ clientId }: Props) {
         }
         if (Object.keys(loadedSets).length > 0) setSets(prev => ({ ...prev, ...loadedSets }))
       }
+      // Overlay any unsaved draft sets on top of what's in the DB
+      if (draftSets) {
+        setSets(prev => {
+          const merged = { ...prev }
+          for (const [exId, dSets] of Object.entries(draftSets)) {
+            if (dSets.some(s => s.weight || s.reps)) merged[exId] = dSets
+          }
+          return merged
+        })
+      }
     } else {
       const { data: newSession } = await supabase
         .from('workout_sessions')
@@ -146,6 +181,15 @@ export default function WorkoutTracker({ clientId }: Props) {
       if (newSession) {
         currentSessionId = newSession.id
         setSessionId(newSession.id)
+        if (draftSets) {
+          setSets(prev => {
+            const merged = { ...prev }
+            for (const [exId, dSets] of Object.entries(draftSets)) {
+              if (dSets.some(s => s.weight || s.reps)) merged[exId] = dSets
+            }
+            return merged
+          })
+        }
       }
     }
 
@@ -195,7 +239,7 @@ export default function WorkoutTracker({ clientId }: Props) {
     setSaving(false)
     setSaved(true)
     toast.success('Workout saved!')
-    // Refresh history so it shows updated sets immediately
+    try { localStorage.removeItem(`aa_draft_${clientId}`) } catch {}
     if (sessionId) loadHistory(sessionId, exercises)
   }
 
