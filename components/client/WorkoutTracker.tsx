@@ -57,15 +57,15 @@ export default function WorkoutTracker({ clientId }: Props) {
     } catch {}
   }, [templates])
 
-  // Auto-save draft to localStorage whenever sets change
+  // Auto-save draft to localStorage whenever sets change (not during loading to avoid overwriting draft with empty sets)
   useEffect(() => {
-    if (!selectedTemplate || Object.keys(sets).length === 0) return
+    if (!selectedTemplate || loading || Object.keys(sets).length === 0) return
     try {
       const now = new Date()
       const today = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`
       localStorage.setItem(`aa_draft_${clientId}`, JSON.stringify({ templateId: selectedTemplate.id, date: today, sets }))
     } catch {}
-  }, [sets, selectedTemplate, clientId])
+  }, [sets, selectedTemplate, loading, clientId])
 
   async function loadHistory(currentSessionId: string, exs: { id: string; name: string }[]) {
     // Load all sessions except the current one, most recent first
@@ -150,6 +150,7 @@ export default function WorkoutTracker({ clientId }: Props) {
         .from('set_logs')
         .select('*')
         .eq('session_id', existing.id)
+        .eq('client_id', clientId)
       if (todaySets && todaySets.length > 0) {
         const loadedSets: Record<string, { weight: string; reps: string }[]> = {}
         for (const ex of exs) {
