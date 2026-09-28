@@ -6,7 +6,7 @@ import { WorkoutTemplate, WorkoutExercise } from '@/lib/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { ChevronRight, ArrowLeft, Plus, Trash2, Dumbbell, ChevronDown, ChevronUp, Check } from 'lucide-react'
+import { ChevronRight, ArrowLeft, Plus, Trash2, Dumbbell, ChevronDown, ChevronUp, Check, CloudUpload } from 'lucide-react'
 
 interface Props {
   clientId: string
@@ -26,6 +26,7 @@ export default function WorkoutTracker({ clientId }: Props) {
   const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null)
   const [exercises, setExercises] = useState<ExerciseWithHistory[]>([])
   const [sets, setSets] = useState<Record<string, { weight: string; reps: string }[]>>({})
+  const [savedSets, setSavedSets] = useState<Record<string, boolean[]>>({})
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -128,6 +129,7 @@ export default function WorkoutTracker({ clientId }: Props) {
     const initSets: Record<string, { weight: string; reps: string }[]> = {}
     for (const ex of exs) initSets[ex.id] = [{ weight: '', reps: '' }]
     setSets(initSets)
+    setSavedSets({})
 
     // Get local date string (not UTC) to match how sessions are stored
     const now = new Date()
@@ -161,7 +163,17 @@ export default function WorkoutTracker({ clientId }: Props) {
               .map(s => ({ weight: s.weight_lbs?.toString() || '', reps: s.reps?.toString() || '' }))
           }
         }
-        if (Object.keys(loadedSets).length > 0) setSets(prev => ({ ...prev, ...loadedSets }))
+        if (Object.keys(loadedSets).length > 0) {
+          setSets(prev => ({ ...prev, ...loadedSets }))
+          // Mark DB-loaded sets as already saved
+          setSavedSets(prev => {
+            const updated = { ...prev }
+            for (const [exId, exSets] of Object.entries(loadedSets)) {
+              updated[exId] = exSets.map(() => true)
+            }
+            return updated
+          })
+        }
       }
       // Overlay any unsaved draft sets on top of what's in the DB
       if (draftSets) {
@@ -202,10 +214,12 @@ export default function WorkoutTracker({ clientId }: Props) {
 
   function addSet(exerciseId: string) {
     setSets(prev => ({ ...prev, [exerciseId]: [...(prev[exerciseId] || []), { weight: '', reps: '' }] }))
+    setSavedSets(prev => ({ ...prev, [exerciseId]: [...(prev[exerciseId] || []), false] }))
   }
 
   function removeSet(exerciseId: string, i: number) {
     setSets(prev => ({ ...prev, [exerciseId]: prev[exerciseId].filter((_, idx) => idx !== i) }))
+    setSavedSets(prev => ({ ...prev, [exerciseId]: (prev[exerciseId] || []).filter((_, idx) => idx !== i) }))
   }
 
   function updateSet(exerciseId: string, i: number, field: 'weight' | 'reps', value: string) {
@@ -213,7 +227,42 @@ export default function WorkoutTracker({ clientId }: Props) {
       ...prev,
       [exerciseId]: prev[exerciseId].map((s, idx) => idx === i ? { ...s, [field]: value } : s),
     }))
+    setSavedSets(prev => {
+      const arr = [...(prev[exerciseId] || [])]
+      arr[i] = false
+      return { ...prev, [exerciseId]: arr }
+    })
     setSaved(false)
+  }
+
+  async function saveSet(exerciseId: string, setIndex: number) {
+    if (!sessionId) return
+    const ex = exercises.find(e => e.id === exerciseId)
+    if (!ex) return
+    const s = sets[exerciseId]?.[setIndex]
+    if (!s || (!s.weight && !s.reps)) return
+
+    await supabase.from('set_logs')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('client_id', clientId)
+      .eq('exercise_name', ex.name)
+      .eq('set_number', setIndex + 1)
+
+    await supabase.from('set_logs').insert({
+      session_id: sessionId,
+      client_id: clientId,
+      exercise_name: ex.name,
+      set_number: setIndex + 1,
+      weight_lbs: s.weight ? parseFloat(s.weight) : null,
+      reps: s.reps ? parseInt(s.reps) : null,
+    })
+
+    setSavedSets(prev => {
+      const arr = [...(prev[exerciseId] || [])]
+      arr[setIndex] = true
+      return { ...prev, [exerciseId]: arr }
+    })
   }
 
   async function saveAll() {
@@ -399,40 +448,53 @@ export default function WorkoutTracker({ clientId }: Props) {
           )}
 
           <div className="space-y-2">
-            <div className="grid grid-cols-[36px_1fr_12px_1fr_28px] gap-2 items-center">
+            <div className="grid grid-cols-[28px_1fr_10px_1fr_28px_28px] gap-1.5 items-center">
               <span className="text-zinc-600 text-xs">Set</span>
               <span className="text-zinc-600 text-xs">Weight (lbs)</span>
               <span />
               <span className="text-zinc-600 text-xs">Reps</span>
               <span />
+              <span />
             </div>
-            {(sets[ex.id] || []).map((s, i) => (
-              <div key={i} className="grid grid-cols-[36px_1fr_12px_1fr_28px] gap-2 items-center">
-                <span className="text-zinc-500 text-xs font-medium">{i + 1}</span>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  placeholder="0"
-                  value={s.weight}
-                  onChange={e => updateSet(ex.id, i, 'weight', e.target.value)}
-                  className="bg-zinc-800 border-zinc-700 text-white h-10 text-sm"
-                />
-                <span className="text-zinc-600 text-xs text-center">×</span>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  placeholder="0"
-                  value={s.reps}
-                  onChange={e => updateSet(ex.id, i, 'reps', e.target.value)}
-                  className="bg-zinc-800 border-zinc-700 text-white h-10 text-sm"
-                />
-                {(sets[ex.id] || []).length > 1 && (
-                  <button onClick={() => removeSet(ex.id, i)} className="text-zinc-600 hover:text-red-400 transition-colors flex justify-center">
-                    <Trash2 className="w-3.5 h-3.5" />
+            {(sets[ex.id] || []).map((s, i) => {
+              const isLogged = savedSets[ex.id]?.[i] === true
+              return (
+                <div key={i} className="grid grid-cols-[28px_1fr_10px_1fr_28px_28px] gap-1.5 items-center">
+                  <span className="text-zinc-500 text-xs font-medium">{i + 1}</span>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={s.weight}
+                    onChange={e => updateSet(ex.id, i, 'weight', e.target.value)}
+                    className="bg-zinc-800 border-zinc-700 text-white h-10 text-sm"
+                  />
+                  <span className="text-zinc-600 text-xs text-center">×</span>
+                  <Input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="0"
+                    value={s.reps}
+                    onChange={e => updateSet(ex.id, i, 'reps', e.target.value)}
+                    className="bg-zinc-800 border-zinc-700 text-white h-10 text-sm"
+                  />
+                  <button
+                    onClick={() => saveSet(ex.id, i)}
+                    disabled={isLogged || (!s.weight && !s.reps)}
+                    title={isLogged ? 'Set logged' : 'Log this set'}
+                    className="flex justify-center items-center w-7 h-7 rounded-lg transition-colors disabled:opacity-40"
+                    style={isLogged ? { background: 'rgba(74,222,128,0.15)', color: '#4ade80' } : { background: 'rgba(201,168,76,0.1)', color: '#C9A84C' }}
+                  >
+                    {isLogged ? <Check className="w-3.5 h-3.5" /> : <CloudUpload className="w-3.5 h-3.5" />}
                   </button>
-                )}
-              </div>
-            ))}
+                  {(sets[ex.id] || []).length > 1 ? (
+                    <button onClick={() => removeSet(ex.id, i)} className="text-zinc-600 hover:text-red-400 transition-colors flex justify-center">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  ) : <span />}
+                </div>
+              )
+            })}
           </div>
 
           <button onClick={() => addSet(ex.id)} className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-xs transition-colors pt-1">
