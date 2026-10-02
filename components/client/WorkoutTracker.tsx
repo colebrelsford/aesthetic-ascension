@@ -58,6 +58,19 @@ export default function WorkoutTracker({ clientId }: Props) {
     } catch {}
   }, [templates])
 
+  // Warn before closing/refreshing the page with unsaved sets
+  useEffect(() => {
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      if (!selectedTemplate || saved) return
+      const hasUnsaved = exercises.some(ex =>
+        (sets[ex.id] || []).some((s, i) => (s.weight || s.reps) && !savedSets[ex.id]?.[i])
+      )
+      if (hasUnsaved) { e.preventDefault(); e.returnValue = '' }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [selectedTemplate, saved, exercises, sets, savedSets])
+
   // Auto-save draft to localStorage whenever sets change (not during loading to avoid overwriting draft with empty sets)
   useEffect(() => {
     if (!selectedTemplate || loading || Object.keys(sets).length === 0) return
@@ -371,7 +384,16 @@ export default function WorkoutTracker({ clientId }: Props) {
 
   return (
     <div className="space-y-4 pb-28">
-      <button onClick={() => { setSelectedTemplate(null); setExercises([]); setSets({}) }} className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-sm transition-colors">
+      <button
+        onClick={() => {
+          const hasUnsaved = exercises.some(ex =>
+            (sets[ex.id] || []).some((s, i) => (s.weight || s.reps) && !savedSets[ex.id]?.[i])
+          )
+          if (hasUnsaved && !window.confirm('You have sets that haven\'t been logged to the database yet.\n\nTap the cloud icon next to each set, or "Save Workout" to save everything.\n\nLeave anyway?')) return
+          setSelectedTemplate(null); setExercises([]); setSets({}); setSavedSets({})
+        }}
+        className="flex items-center gap-1.5 text-zinc-400 hover:text-white text-sm transition-colors"
+      >
         <ArrowLeft className="w-4 h-4" /> Back to workouts
       </button>
 
