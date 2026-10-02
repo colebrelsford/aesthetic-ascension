@@ -262,7 +262,7 @@ export default function WorkoutTracker({ clientId }: Props) {
       .eq('exercise_name', ex.name)
       .eq('set_number', setIndex + 1)
 
-    await supabase.from('set_logs').insert({
+    const { error } = await supabase.from('set_logs').insert({
       session_id: sessionId,
       client_id: clientId,
       exercise_name: ex.name,
@@ -270,6 +270,11 @@ export default function WorkoutTracker({ clientId }: Props) {
       weight_lbs: s.weight ? parseFloat(s.weight) : null,
       reps: s.reps ? parseInt(s.reps) : null,
     })
+
+    if (error) {
+      toast.error(`Failed to save set: ${error.message}`)
+      return
+    }
 
     setSavedSets(prev => {
       const arr = [...(prev[exerciseId] || [])]
@@ -281,13 +286,14 @@ export default function WorkoutTracker({ clientId }: Props) {
   async function saveAll() {
     if (!sessionId) return
     setSaving(true)
+    let hadError = false
 
     for (const ex of exercises) {
       const validSets = (sets[ex.id] || []).filter(s => s.weight || s.reps)
       if (validSets.length === 0) continue
 
-      await supabase.from('set_logs').delete().eq('session_id', sessionId).eq('exercise_name', ex.name)
-      await supabase.from('set_logs').insert(
+      await supabase.from('set_logs').delete().eq('session_id', sessionId).eq('client_id', clientId).eq('exercise_name', ex.name)
+      const { error } = await supabase.from('set_logs').insert(
         validSets.map((s, i) => ({
           session_id: sessionId,
           client_id: clientId,
@@ -297,13 +303,19 @@ export default function WorkoutTracker({ clientId }: Props) {
           reps: s.reps ? parseInt(s.reps) : null,
         }))
       )
+      if (error) {
+        toast.error(`Failed to save ${ex.name}: ${error.message}`)
+        hadError = true
+      }
     }
 
     setSaving(false)
-    setSaved(true)
-    toast.success('Workout saved!')
-    try { localStorage.removeItem(`aa_draft_${clientId}`) } catch {}
-    if (sessionId) loadHistory(sessionId, exercises)
+    if (!hadError) {
+      setSaved(true)
+      toast.success('Workout saved!')
+      try { localStorage.removeItem(`aa_draft_${clientId}`) } catch {}
+      if (sessionId) loadHistory(sessionId, exercises)
+    }
   }
 
   function formatDate(dateStr: string) {
