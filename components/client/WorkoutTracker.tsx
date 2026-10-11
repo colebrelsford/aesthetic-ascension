@@ -501,6 +501,7 @@ export default function WorkoutTracker({ clientId }: Props) {
                     placeholder="0"
                     value={s.weight}
                     onChange={e => updateSet(ex.id, i, 'weight', e.target.value)}
+                    onBlur={() => { const cur = sets[ex.id]?.[i]; if (cur?.weight && cur?.reps) saveSet(ex.id, i) }}
                     className="bg-zinc-800 border-zinc-700 text-white h-10 text-sm"
                   />
                   <span className="text-zinc-600 text-xs text-center">×</span>
@@ -510,6 +511,7 @@ export default function WorkoutTracker({ clientId }: Props) {
                     placeholder="0"
                     value={s.reps}
                     onChange={e => updateSet(ex.id, i, 'reps', e.target.value)}
+                    onBlur={() => { const cur = sets[ex.id]?.[i]; if (cur?.weight && cur?.reps) saveSet(ex.id, i) }}
                     className="bg-zinc-800 border-zinc-700 text-white h-10 text-sm"
                   />
                   <button
