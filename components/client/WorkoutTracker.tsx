@@ -148,19 +148,23 @@ export default function WorkoutTracker({ clientId }: Props) {
     const now = new Date()
     const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
-    // Get or create today's session
+    // Get or create today's session — if existing session is completed, start a fresh one
     let currentSessionId: string | null = null
     const { data: existing } = await supabase
       .from('workout_sessions')
-      .select('id')
+      .select('id, completed')
       .eq('client_id', clientId)
       .eq('session_date', today)
+      .order('created_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
-    if (existing) {
+    const shouldResume = existing && !existing.completed
+
+    if (shouldResume) {
       currentSessionId = existing.id
       setSessionId(existing.id)
-      // Load any sets already saved for this session
+      // Load any sets already saved for this in-progress session
       const { data: todaySets } = await supabase
         .from('set_logs')
         .select('*')
@@ -178,7 +182,6 @@ export default function WorkoutTracker({ clientId }: Props) {
         }
         if (Object.keys(loadedSets).length > 0) {
           setSets(prev => ({ ...prev, ...loadedSets }))
-          // Mark DB-loaded sets as already saved
           setSavedSets(prev => {
             const updated = { ...prev }
             for (const [exId, exSets] of Object.entries(loadedSets)) {
@@ -199,6 +202,7 @@ export default function WorkoutTracker({ clientId }: Props) {
         })
       }
     } else {
+      // Either no session today, or previous session was completed — start fresh
       const { data: newSession } = await supabase
         .from('workout_sessions')
         .insert({ client_id: clientId, session_date: today })
@@ -283,7 +287,7 @@ export default function WorkoutTracker({ clientId }: Props) {
     })
   }
 
-  async function saveAll() {
+  async function saveAll(andEnd = false) {
     if (!sessionId) return
     setSaving(true)
     let hadError = false
@@ -312,9 +316,15 @@ export default function WorkoutTracker({ clientId }: Props) {
     setSaving(false)
     if (!hadError) {
       setSaved(true)
-      toast.success('Workout saved!')
       try { localStorage.removeItem(`aa_draft_${clientId}`) } catch {}
-      if (sessionId) loadHistory(sessionId, exercises)
+      if (andEnd) {
+        await supabase.from('workout_sessions').update({ completed: true }).eq('id', sessionId)
+        toast.success('Workout complete! Great work 💪')
+        setSelectedTemplate(null); setExercises([]); setSets({}); setSavedSets({})
+      } else {
+        toast.success('Workout saved!')
+        if (sessionId) loadHistory(sessionId, exercises)
+      }
     }
   }
 
@@ -539,16 +549,34 @@ export default function WorkoutTracker({ clientId }: Props) {
         </div>
       ))}
 
-      {/* Sticky save button */}
-      <div className="sticky bottom-0 py-4 z-30" style={{ background: 'linear-gradient(to top, #000 70%, transparent)' }}>
-        <button
-          onClick={saveAll}
-          disabled={saving}
-          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-bold text-black disabled:opacity-60 transition-all"
-          style={{ background: saved ? 'linear-gradient(135deg, #4ade80, #22c55e)' : 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}
-        >
-          {saving ? 'Saving…' : saved ? (<><Check className="w-5 h-5" /> Workout Saved</>) : 'Save Workout'}
-        </button>
+      {/* Sticky save / end buttons */}
+      <div className="sticky bottom-0 py-4 z-30 space-y-2" style={{ background: 'linear-gradient(to top, #000 70%, transparent)' }}>
+        {saved ? (
+          <>
+            <button
+              onClick={() => saveAll(true)}
+              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-bold text-black transition-all"
+              style={{ background: 'linear-gradient(135deg, #4ade80, #22c55e)' }}
+            >
+              <Check className="w-5 h-5" /> End Workout
+            </button>
+            <button
+              onClick={() => saveAll(false)}
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-all"
+            >
+              Save Progress (keep going)
+            </button>
+          </>
+        ) : (
+          <button
+            onClick={() => saveAll(false)}
+            disabled={saving}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-bold text-black disabled:opacity-60 transition-all"
+            style={{ background: 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}
+          >
+            {saving ? 'Saving…' : 'Save Workout'}
+          </button>
+        )}
       </div>
     </div>
   )
