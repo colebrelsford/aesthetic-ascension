@@ -395,7 +395,7 @@ export default function WorkoutTracker({ clientId }: Props) {
   }
 
   return (
-    <div className="space-y-4 pb-28">
+    <div className="space-y-4 pb-4">
       <button
         onClick={() => {
           const hasUnsaved = exercises.some(ex =>
@@ -540,12 +540,12 @@ export default function WorkoutTracker({ clientId }: Props) {
       ))}
 
       {/* Sticky save button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 z-30" style={{ background: 'linear-gradient(to top, #000 60%, transparent)' }}>
+      <div className="sticky bottom-0 py-4 z-30" style={{ background: 'linear-gradient(to top, #000 70%, transparent)' }}>
         <button
           onClick={saveAll}
           disabled={saving}
-          className="w-full max-w-lg mx-auto flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-bold text-black disabled:opacity-60 transition-all"
-          style={{ background: saved ? 'linear-gradient(135deg, #4ade80, #22c55e)' : 'linear-gradient(135deg, #C9A84C, #E8C97A)', display: 'flex' }}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-bold text-black disabled:opacity-60 transition-all"
+          style={{ background: saved ? 'linear-gradient(135deg, #4ade80, #22c55e)' : 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}
         >
           {saving ? 'Saving…' : saved ? (<><Check className="w-5 h-5" /> Workout Saved</>) : 'Save Workout'}
         </button>
