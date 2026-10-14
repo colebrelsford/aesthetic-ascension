@@ -551,32 +551,21 @@ export default function WorkoutTracker({ clientId }: Props) {
 
       {/* Sticky save / end buttons */}
       <div className="sticky bottom-0 py-4 z-30 space-y-2" style={{ background: 'linear-gradient(to top, #000 70%, transparent)' }}>
-        {saved ? (
-          <>
-            <button
-              onClick={() => saveAll(true)}
-              className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-bold text-black transition-all"
-              style={{ background: 'linear-gradient(135deg, #4ade80, #22c55e)' }}
-            >
-              <Check className="w-5 h-5" /> End Workout
-            </button>
-            <button
-              onClick={() => saveAll(false)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-all"
-            >
-              Save Progress (keep going)
-            </button>
-          </>
-        ) : (
-          <button
-            onClick={() => saveAll(false)}
-            disabled={saving}
-            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-bold text-black disabled:opacity-60 transition-all"
-            style={{ background: 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}
-          >
-            {saving ? 'Saving…' : 'Save Workout'}
-          </button>
-        )}
+        <button
+          onClick={() => saveAll(true)}
+          disabled={saving}
+          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-bold text-black disabled:opacity-60 transition-all"
+          style={{ background: 'linear-gradient(135deg, #4ade80, #22c55e)' }}
+        >
+          {saving ? 'Saving…' : <><Check className="w-5 h-5" /> Save &amp; End Workout</>}
+        </button>
+        <button
+          onClick={() => saveAll(false)}
+          disabled={saving}
+          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-all disabled:opacity-60"
+        >
+          Save Progress (keep going)
+        </button>
       </div>
     </div>
   )
