@@ -689,19 +689,20 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
             ) : (
               <button
                 onClick={() => setSelectedPlanId(plan.id)}
-                onDoubleClick={() => { setEditingPlanId(plan.id); setEditingPlanName(plan.name) }}
                 className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all"
                 style={selectedPlanId === plan.id
                   ? { background: 'linear-gradient(135deg, #C9A84C, #E8C97A)', color: '#000' }
                   : { background: '#111', border: '1px solid rgba(255,255,255,0.08)', color: '#888' }
                 }
-                title="Double-click to rename"
               >
                 {plan.name}
               </button>
             )}
             {selectedPlanId === plan.id && editingPlanId !== plan.id && (
               <div className="flex items-center gap-0.5">
+                <button onClick={() => { setEditingPlanId(plan.id); setEditingPlanName(plan.name) }} className="text-zinc-600 hover:text-zinc-300 transition-colors p-1" title="Rename plan">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
                 <button onClick={() => duplicatePlan(plan.id)} className="text-zinc-600 hover:text-zinc-300 transition-colors p-1" title="Duplicate plan">
                   <Copy className="w-3.5 h-3.5" />
                 </button>
