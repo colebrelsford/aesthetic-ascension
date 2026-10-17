@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Plus, Trash2, Search, X, Loader2, UtensilsCrossed, BookMarked, Pencil, Check, Settings2 } from 'lucide-react'
+import { Plus, Trash2, Search, X, Loader2, UtensilsCrossed, BookMarked, Pencil, Check, Settings2, Copy } from 'lucide-react'
 
 interface MealPlan {
   id: string
@@ -386,6 +386,71 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
     toast.success('Plan deleted')
   }
 
+  async function duplicatePlan(planId: string) {
+    const sourcePlan = plans.find(p => p.id === planId)
+    if (!sourcePlan) return
+
+    // Create the new plan
+    const { data: newPlan, error: planError } = await supabase
+      .from('meal_plan_plans')
+      .insert({ client_id: clientId, name: `${sourcePlan.name} (copy)`, display_order: plans.length })
+      .select().single()
+    if (planError || !newPlan) { toast.error('Failed to duplicate plan'); return }
+
+    // Load source meals
+    const { data: sourceMeals } = await supabase
+      .from('meal_plan_meals').select('*').eq('plan_id', planId).order('display_order')
+    if (!sourceMeals || sourceMeals.length === 0) {
+      setPlans(prev => [...prev, newPlan])
+      setSelectedPlanId(newPlan.id)
+      setMeals([]); setFoods({})
+      toast.success(`"${newPlan.name}" created`)
+      return
+    }
+
+    // Insert new meals
+    const { data: newMeals } = await supabase
+      .from('meal_plan_meals')
+      .insert(sourceMeals.map(m => ({ client_id: clientId, plan_id: newPlan.id, name: m.name, display_order: m.display_order })))
+      .select()
+    if (!newMeals) { toast.error('Failed to copy meals'); return }
+
+    // Load source foods
+    const { data: sourceFoods } = await supabase
+      .from('meal_plan_foods').select('*').in('meal_id', sourceMeals.map(m => m.id))
+    if (sourceFoods && sourceFoods.length > 0) {
+      // Map old meal IDs → new meal IDs
+      const mealIdMap: Record<string, string> = {}
+      for (let i = 0; i < sourceMeals.length; i++) mealIdMap[sourceMeals[i].id] = newMeals[i].id
+
+      await supabase.from('meal_plan_foods').insert(
+        sourceFoods.map(f => ({
+          meal_id: mealIdMap[f.meal_id],
+          client_id: clientId,
+          food_name: f.food_name,
+          brand_name: f.brand_name,
+          quantity: f.quantity,
+          display_qty: f.display_qty,
+          display_unit: f.display_unit,
+          calories: f.calories,
+          protein_g: f.protein_g,
+          carbs_g: f.carbs_g,
+          fat_g: f.fat_g,
+          calories_per_100g: f.calories_per_100g,
+          protein_per_100g: f.protein_per_100g,
+          carbs_per_100g: f.carbs_per_100g,
+          fat_per_100g: f.fat_per_100g,
+          display_order: f.display_order,
+        }))
+      )
+    }
+
+    setPlans(prev => [...prev, newPlan])
+    setSelectedPlanId(newPlan.id)
+    await loadMeals(newPlan.id)
+    toast.success(`"${newPlan.name}" created — edit it to make changes`)
+  }
+
   async function addDefaultMeals() {
     if (!selectedPlanId) return
     const rows = DEFAULT_MEALS.map((name, i) => ({ client_id: clientId, plan_id: selectedPlanId, name, display_order: i }))
@@ -635,10 +700,17 @@ export default function MealPlanBuilder({ clientId, coachId }: Props) {
                 {plan.name}
               </button>
             )}
-            {selectedPlanId === plan.id && plans.length > 1 && editingPlanId !== plan.id && (
-              <button onClick={() => deletePlan(plan.id)} className="text-zinc-700 hover:text-red-400 transition-colors p-1" title="Delete plan">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+            {selectedPlanId === plan.id && editingPlanId !== plan.id && (
+              <div className="flex items-center gap-0.5">
+                <button onClick={() => duplicatePlan(plan.id)} className="text-zinc-600 hover:text-zinc-300 transition-colors p-1" title="Duplicate plan">
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+                {plans.length > 1 && (
+                  <button onClick={() => deletePlan(plan.id)} className="text-zinc-700 hover:text-red-400 transition-colors p-1" title="Delete plan">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
         ))}
