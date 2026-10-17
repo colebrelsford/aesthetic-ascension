@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { Flame, Plus, Trash2, X, Check, RefreshCw } from 'lucide-react'
+import { Flame, Plus, Trash2, X, Check, RefreshCw, Pencil, Copy } from 'lucide-react'
 
 interface Props {
   clientId: string
@@ -129,6 +129,26 @@ export default function MacroTargetBuilder({ clientId, coachId }: Props) {
     toast.success(`"${name}" created`)
   }
 
+  async function duplicatePlan(id: string) {
+    const source = plans.find(p => p.id === id)
+    if (!source) return
+    const { data, error } = await supabase.from('macro_targets').insert({
+      client_id: clientId,
+      coach_id: coachId,
+      name: `${source.name} (copy)`,
+      protein_g: source.protein_g,
+      carbs_g: source.carbs_g,
+      fat_g: source.fat_g,
+      calories_override: source.calories_override,
+      notes: source.notes,
+    }).select().single()
+    if (error || !data) { toast.error('Failed to duplicate plan'); return }
+    setPlans(prev => [...prev, data])
+    setSelectedId(data.id)
+    loadForm(data)
+    toast.success(`"${data.name}" created — rename it and adjust the numbers`)
+  }
+
   async function deletePlan(id: string) {
     if (!confirm('Delete this macro plan?')) return
     await supabase.from('macro_targets').delete().eq('id', id)
@@ -223,18 +243,26 @@ export default function MacroTargetBuilder({ clientId, coachId }: Props) {
             ) : (
               <button
                 onClick={() => selectPlan(plan)}
-                onDoubleClick={() => { setEditingNameId(plan.id); setEditingName(plan.name) }}
-                title="Double-click to rename"
                 className="px-4 py-2 rounded-xl text-sm font-medium transition-all"
                 style={selectedId === plan.id
                   ? { background: 'linear-gradient(135deg, #C9A84C, #E8C97A)', color: '#000' }
                   : { background: '#111', border: '1px solid rgba(255,255,255,0.08)', color: '#888' }}
               >{plan.name}</button>
             )}
-            {selectedId === plan.id && plans.length > 1 && editingNameId !== plan.id && (
-              <button onClick={() => deletePlan(plan.id)} className="text-zinc-700 hover:text-red-400 transition-colors p-1">
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
+            {selectedId === plan.id && editingNameId !== plan.id && (
+              <div className="flex items-center gap-0.5">
+                <button onClick={() => { setEditingNameId(plan.id); setEditingName(plan.name) }} className="text-zinc-600 hover:text-zinc-300 transition-colors p-1" title="Rename plan">
+                  <Pencil className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={() => duplicatePlan(plan.id)} className="text-zinc-600 hover:text-zinc-300 transition-colors p-1" title="Duplicate plan">
+                  <Copy className="w-3.5 h-3.5" />
+                </button>
+                {plans.length > 1 && (
+                  <button onClick={() => deletePlan(plan.id)} className="text-zinc-700 hover:text-red-400 transition-colors p-1" title="Delete plan">
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             )}
           </div>
         ))}
