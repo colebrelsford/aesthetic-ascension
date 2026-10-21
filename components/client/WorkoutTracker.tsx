@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { WorkoutTemplate, WorkoutExercise } from '@/lib/types'
 import { Button } from '@/components/ui/button'
@@ -405,7 +406,7 @@ export default function WorkoutTracker({ clientId }: Props) {
   }
 
   return (
-    <div className="space-y-4 pb-4">
+    <div className="space-y-4 pb-28">
       <button
         onClick={() => {
           const hasUnsaved = exercises.some(ex =>
@@ -549,24 +550,26 @@ export default function WorkoutTracker({ clientId }: Props) {
         </div>
       ))}
 
-      {/* Sticky save / end buttons */}
-      <div className="sticky bottom-0 py-4 z-30 space-y-2" style={{ background: 'linear-gradient(to top, #000 70%, transparent)' }}>
-        <button
-          onClick={() => saveAll(true)}
-          disabled={saving}
-          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-bold text-black disabled:opacity-60 transition-all"
-          style={{ background: 'linear-gradient(135deg, #4ade80, #22c55e)' }}
-        >
-          {saving ? 'Saving…' : <><Check className="w-5 h-5" /> Save &amp; End Workout</>}
-        </button>
-        <button
-          onClick={() => saveAll(false)}
-          disabled={saving}
-          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-all disabled:opacity-60"
-        >
-          Save Progress (keep going)
-        </button>
-      </div>
+      {typeof window !== 'undefined' && createPortal(
+        <div className="fixed bottom-0 left-0 right-0 px-4 py-4 z-50 space-y-2" style={{ background: 'linear-gradient(to top, #000 80%, transparent)' }}>
+          <button
+            onClick={() => saveAll(true)}
+            disabled={saving}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-bold text-black disabled:opacity-60 transition-all"
+            style={{ background: 'linear-gradient(135deg, #4ade80, #22c55e)' }}
+          >
+            {saving ? 'Saving…' : <><Check className="w-5 h-5" /> Save &amp; End Workout</>}
+          </button>
+          <button
+            onClick={() => saveAll(false)}
+            disabled={saving}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-2xl text-sm font-semibold text-zinc-400 border border-zinc-700 hover:text-white hover:border-zinc-500 transition-all disabled:opacity-60"
+          >
+            Save Progress (keep going)
+          </button>
+        </div>,
+        document.body
+      )}
     </div>
   )
 }
