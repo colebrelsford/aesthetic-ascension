@@ -3,11 +3,13 @@
 import { useState, useEffect, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
-import { WorkoutTemplate, WorkoutExercise } from '@/lib/types'
+import { WorkoutTemplate, WorkoutExercise, LibraryExercise } from '@/lib/types'
+import { normalizeExerciseName, setTargets } from '@/lib/exerciseNames'
+import ExerciseDiagram from '@/components/shared/ExerciseDiagram'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
-import { ChevronRight, ArrowLeft, Plus, Trash2, Dumbbell, ChevronDown, ChevronUp, Check, CloudUpload } from 'lucide-react'
+import { ChevronRight, ArrowLeft, Plus, Trash2, Dumbbell, ChevronDown, ChevronUp, Check, CloudUpload, Info } from 'lucide-react'
 
 interface Props {
   clientId: string
@@ -20,6 +22,14 @@ interface SessionHistory {
 
 interface ExerciseWithHistory extends WorkoutExercise {
   sessionHistory: SessionHistory[]
+  library?: LibraryExercise
+}
+
+/** Does a logged set belong to this programmed exercise? Matches by library link, current/previous names and library aliases. */
+function matchesExercise(log: { exercise_name: string; library_exercise_id?: string | null }, ex: ExerciseWithHistory) {
+  if (ex.library_exercise_id && log.library_exercise_id === ex.library_exercise_id) return true
+  const keys = new Set([ex.name, ...(ex.previous_names || []), ...(ex.library ? [ex.library.name, ...ex.library.aliases] : [])].map(normalizeExerciseName))
+  return keys.has(normalizeExerciseName(log.exercise_name))
 }
 
 const noopSubscribe = () => () => {}
@@ -35,6 +45,7 @@ export default function WorkoutTracker({ clientId }: Props) {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showTips, setShowTips] = useState(false)
+  const [openHowTo, setOpenHowTo] = useState<Record<string, boolean>>({})
   const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false)
   const [viewportOffset, setViewportOffset] = useState(0)
   const supabase = createClient()
@@ -105,7 +116,7 @@ export default function WorkoutTracker({ clientId }: Props) {
     } catch {}
   }, [sets, selectedTemplate, loading, clientId])
 
-  async function loadHistory(currentSessionId: string, exs: { id: string; name: string }[]) {
+  async function loadHistory(currentSessionId: string, exs: ExerciseWithHistory[]) {
     // Load all sessions except the current one, most recent first
     const { data: pastSessions } = await supabase
       .from('workout_sessions')
@@ -119,7 +130,7 @@ export default function WorkoutTracker({ clientId }: Props) {
 
     const { data: setData } = await supabase
       .from('set_logs')
-      .select('session_id, exercise_name, set_number, weight_lbs, reps')
+      .select('session_id, exercise_name, library_exercise_id, set_number, weight_lbs, reps')
       .in('session_id', pastSessions.map(s => s.id))
       .eq('client_id', clientId)
 
@@ -127,7 +138,7 @@ export default function WorkoutTracker({ clientId }: Props) {
     for (const s of pastSessions) sessionDateMap[s.id] = s.session_date
 
     setExercises(prev => prev.map(ex => {
-      const pastSets = (setData || []).filter(s => s.exercise_name === ex.name)
+      const pastSets = (setData || []).filter(s => matchesExercise(s, ex))
       const byDate: Record<string, typeof pastSets> = {}
       for (const s of pastSets) {
         const date = sessionDateMap[s.session_id]
@@ -159,12 +170,21 @@ export default function WorkoutTracker({ clientId }: Props) {
 
     if (!exs) { setLoading(false); return }
 
-    // Set exercises with empty history initially
-    setExercises(exs.map(ex => ({ ...ex, sessionHistory: [] })))
+    // Pull diagrams/instructions for exercises linked to the coach's library
+    const libIds = [...new Set(exs.map(e => e.library_exercise_id).filter(Boolean))] as string[]
+    const libMap: Record<string, LibraryExercise> = {}
+    if (libIds.length) {
+      const { data: libRows } = await supabase.from('exercise_library').select('*').in('id', libIds)
+      for (const l of libRows || []) libMap[l.id] = l
+    }
+    const withLib: ExerciseWithHistory[] = exs.map(ex => ({ ...ex, sessionHistory: [], library: ex.library_exercise_id ? libMap[ex.library_exercise_id] : undefined }))
 
-    // Initialize empty sets
+    // Set exercises with empty history initially
+    setExercises(withLib)
+
+    // Initialize one empty row per programmed set (at least one)
     const initSets: Record<string, { weight: string; reps: string }[]> = {}
-    for (const ex of exs) initSets[ex.id] = [{ weight: '', reps: '' }]
+    for (const ex of exs) initSets[ex.id] = Array.from({ length: Math.max(1, Math.min(setTargets(ex).length, 10)) }, () => ({ weight: '', reps: '' }))
     setSets(initSets)
     setSavedSets({})
 
@@ -250,7 +270,7 @@ export default function WorkoutTracker({ clientId }: Props) {
     setLoading(false)
 
     // Load history after session is established (excludes current session)
-    if (currentSessionId) loadHistory(currentSessionId, exs)
+    if (currentSessionId) loadHistory(currentSessionId, withLib)
   }
 
   function addSet(exerciseId: string) {
@@ -294,6 +314,7 @@ export default function WorkoutTracker({ clientId }: Props) {
       session_id: sessionId,
       client_id: clientId,
       exercise_name: ex.name,
+      library_exercise_id: ex.library_exercise_id ?? null,
       set_number: setIndex + 1,
       weight_lbs: s.weight ? parseFloat(s.weight) : null,
       reps: s.reps ? parseInt(s.reps) : null,
@@ -326,6 +347,7 @@ export default function WorkoutTracker({ clientId }: Props) {
           session_id: sessionId,
           client_id: clientId,
           exercise_name: ex.name,
+          library_exercise_id: ex.library_exercise_id ?? null,
           set_number: i + 1,
           weight_lbs: s.weight ? parseFloat(s.weight) : null,
           reps: s.reps ? parseInt(s.reps) : null,
@@ -484,13 +506,48 @@ export default function WorkoutTracker({ clientId }: Props) {
 
       {exercises.map(ex => (
         <div key={ex.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3">
-          <h4 className="font-medium text-white">{ex.name}</h4>
+          <div className="flex items-start gap-3">
+            {ex.library && <ExerciseDiagram imageUrl={ex.library.image_url} name={ex.name} size="sm" className="!w-14 !h-14" />}
+            <div className="min-w-0 flex-1">
+              <h4 className="font-medium text-white">{ex.name}</h4>
+              {ex.library?.muscle_group && <p className="text-zinc-500 text-xs mt-0.5">{[ex.library.muscle_group, ex.library.equipment].filter(Boolean).join(' · ')}</p>}
+            </div>
+            {ex.library && (ex.library.instructions || ex.library.cues || ex.library.image_url) && (
+              <button
+                onClick={() => setOpenHowTo(p => ({ ...p, [ex.id]: !p[ex.id] }))}
+                className="flex items-center gap-1 text-xs shrink-0 px-2 py-1 rounded-lg"
+                style={{ color: '#C9A84C', background: 'rgba(201,168,76,0.08)' }}
+                aria-expanded={!!openHowTo[ex.id]}
+              >
+                <Info className="w-3.5 h-3.5" /> How to
+              </button>
+            )}
+          </div>
+
+          {ex.library && openHowTo[ex.id] && (
+            <div className="rounded-lg p-3 space-y-3" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              {ex.library.image_url && <ExerciseDiagram imageUrl={ex.library.image_url} name={ex.name} size="lg" />}
+              {ex.library.instructions && <p className="text-zinc-300 text-sm leading-relaxed">{ex.library.instructions}</p>}
+              {ex.library.cues && (
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider font-semibold mb-1" style={{ color: '#C9A84C' }}>Coach cues</p>
+                  <p className="text-zinc-400 text-sm leading-relaxed">{ex.library.cues}</p>
+                </div>
+              )}
+            </div>
+          )}
 
           {(ex.target_sets || ex.target_reps) && (
             <div className="rounded-lg px-3 py-2" style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)' }}>
               <p className="text-xs font-medium" style={{ color: '#C9A84C' }}>
-                Target: {ex.target_sets ? `${ex.target_sets} sets` : ''}{ex.target_sets && ex.target_reps ? ' × ' : ''}{ex.target_reps ? `${ex.target_reps} reps` : ''}
-                {ex.exercise_notes ? <span className="text-[#888] font-normal ml-2">— {ex.exercise_notes}</span> : null}
+                Target: {(() => {
+                  const t = setTargets(ex)
+                  if (t.length > 1 && !t.every(x => x.reps === t[0].reps)) return t.map((x, i) => `Set ${i + 1}: ${x.reps || '—'}`).join(' · ')
+                  return <>{ex.target_sets ? `${ex.target_sets} sets` : ''}{ex.target_sets && ex.target_reps ? ' × ' : ''}{ex.target_reps ? `${ex.target_reps} reps` : ''}</>
+                })()}
+                {ex.exercise_notes && ex.exercise_notes.trim() !== (ex.library?.cues || '').trim()
+                  ? <span className="text-[#888] font-normal ml-2">— {ex.exercise_notes}</span>
+                  : null}
               </p>
             </div>
           )}
@@ -542,7 +599,7 @@ export default function WorkoutTracker({ clientId }: Props) {
                   <Input
                     type="number"
                     inputMode="numeric"
-                    placeholder="0"
+                    placeholder={setTargets(ex)[i]?.reps || '0'}
                     value={s.reps}
                     onChange={e => updateSet(ex.id, i, 'reps', e.target.value)}
                     onBlur={() => { const cur = sets[ex.id]?.[i]; if (cur?.weight && cur?.reps) saveSet(ex.id, i) }}

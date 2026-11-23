@@ -9,8 +9,9 @@ import ClientDetail from './ClientDetail'
 import ActivityFeed from './ActivityFeed'
 import CoachStats from './CoachStats'
 import CoachTemplates from './CoachTemplates'
+import ExerciseLibrary from './ExerciseLibrary'
 import { useCheckinNotifications } from '@/hooks/useCheckinNotifications'
-import { Users, Bell, BellOff, Search, Flag, Dumbbell, UserX } from 'lucide-react'
+import { Users, Bell, BellOff, Search, Flag, Dumbbell, UserX, BookOpen } from 'lucide-react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 
@@ -139,6 +140,7 @@ export default function CoachDashboard({ profile }: Props) {
               { value: 'past', label: 'Past Clients', icon: <UserX className="w-3.5 h-3.5" /> },
               { value: 'activity', label: 'Activity', icon: null },
               { value: 'templates', label: 'Templates', icon: <Dumbbell className="w-3.5 h-3.5" /> },
+              { value: 'library', label: 'Exercise Library', icon: <BookOpen className="w-3.5 h-3.5" /> },
             ].map(t => (
               <TabsTrigger key={t.value} value={t.value} className="flex items-center gap-1.5 text-[#666] text-xs font-medium rounded-lg px-3 py-1.5 transition-all data-[state=active]:text-black data-[state=active]:font-semibold">
                 {t.icon}{t.label}
@@ -202,6 +204,10 @@ export default function CoachDashboard({ profile }: Props) {
 
           <TabsContent value="activity">
             <ActivityFeed coachId={profile.id} />
+          </TabsContent>
+
+          <TabsContent value="library">
+            <ExerciseLibrary coachId={profile.id} />
           </TabsContent>
 
           <TabsContent value="templates">

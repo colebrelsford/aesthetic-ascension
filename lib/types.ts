@@ -91,6 +91,25 @@ export interface WorkoutExercise {
   target_reps: string | null
   exercise_notes: string | null
   created_at: string
+  library_exercise_id?: string | null
+  set_scheme?: { reps: string }[] | null
+  previous_names?: string[]
+}
+
+export interface LibraryExercise {
+  id: string
+  coach_id: string
+  name: string
+  muscle_group: string | null
+  equipment: string | null
+  instructions: string | null
+  cues: string | null
+  image_url: string | null
+  default_sets: number | null
+  default_reps: string | null
+  aliases: string[]
+  created_at: string
+  updated_at: string
 }
 
 export interface WorkoutSession {
@@ -106,6 +125,7 @@ export interface SetLog {
   session_id: string
   client_id: string
   exercise_name: string
+  library_exercise_id?: string | null
   set_number: number
   weight_lbs: number | null
   reps: number | null
