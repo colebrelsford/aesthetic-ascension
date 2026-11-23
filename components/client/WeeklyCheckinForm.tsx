@@ -55,7 +55,9 @@ function NumberField({ label, sublabel, value, onChange, placeholder, unit }: {
         {sublabel && <p className="text-zinc-500 text-xs mt-0.5">{sublabel}</p>}
       </div>
       <div className="flex items-center gap-2">
-        <Input type="number" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+        {/* step="any": without it the browser only allows whole numbers and silently
+            blocks submit on decimals like 7.5 hrs sleep (iOS shows no visible error). */}
+        <Input type="number" step="any" inputMode="decimal" value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
           className="bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500 w-28" />
         {unit && <span className="text-zinc-500 text-sm">{unit}</span>}
       </div>
