@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { WorkoutTemplate, WorkoutExercise } from '@/lib/types'
@@ -22,6 +22,8 @@ interface ExerciseWithHistory extends WorkoutExercise {
   sessionHistory: SessionHistory[]
 }
 
+const noopSubscribe = () => () => {}
+
 export default function WorkoutTracker({ clientId }: Props) {
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([])
   const [selectedTemplate, setSelectedTemplate] = useState<WorkoutTemplate | null>(null)
@@ -33,7 +35,28 @@ export default function WorkoutTracker({ clientId }: Props) {
   const [saved, setSaved] = useState(false)
   const [loading, setLoading] = useState(false)
   const [showTips, setShowTips] = useState(false)
+  const mounted = useSyncExternalStore(noopSubscribe, () => true, () => false)
+  const [viewportOffset, setViewportOffset] = useState(0)
   const supabase = createClient()
+
+  // iOS Safari anchors position:fixed to the layout viewport, which drifts away
+  // from what's on screen when the keyboard is open or during momentum scroll.
+  // Track the visual viewport so the save bar stays glued to the visible bottom.
+  useEffect(() => {
+    const vv = window.visualViewport
+    if (!vv) return
+    const update = () => {
+      const layoutHeight = document.documentElement.clientHeight
+      setViewportOffset(Math.max(0, Math.round(layoutHeight - vv.height - vv.offsetTop)))
+    }
+    update()
+    vv.addEventListener('resize', update)
+    vv.addEventListener('scroll', update)
+    return () => {
+      vv.removeEventListener('resize', update)
+      vv.removeEventListener('scroll', update)
+    }
+  }, [])
 
   useEffect(() => {
     supabase
@@ -550,8 +573,17 @@ export default function WorkoutTracker({ clientId }: Props) {
         </div>
       ))}
 
-      {typeof window !== 'undefined' && createPortal(
-        <div className="fixed bottom-0 left-0 right-0 px-4 py-4 z-50 space-y-2" style={{ background: 'linear-gradient(to top, #000 80%, transparent)' }}>
+      {mounted && createPortal(
+        <div
+          data-testid="workout-save-bar"
+          className="fixed bottom-0 left-0 right-0 px-4 pt-4 z-50 space-y-2"
+          style={{
+            background: 'linear-gradient(to top, #000 80%, transparent)',
+            paddingBottom: 'max(1rem, env(safe-area-inset-bottom))',
+            transform: `translate3d(0, ${-viewportOffset}px, 0)`,
+            willChange: 'transform',
+          }}
+        >
           <button
             onClick={() => saveAll(true)}
             disabled={saving}
