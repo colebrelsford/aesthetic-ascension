@@ -4,7 +4,7 @@ import { useState, useEffect, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { WorkoutTemplate, WorkoutExercise, LibraryExercise } from '@/lib/types'
-import { normalizeExerciseName, setTargets } from '@/lib/exerciseNames'
+import { findLibraryMatch, normalizeExerciseName, setTargets } from '@/lib/exerciseNames'
 import ExerciseDiagram from '@/components/shared/ExerciseDiagram'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,7 +27,8 @@ interface ExerciseWithHistory extends WorkoutExercise {
 
 /** Does a logged set belong to this programmed exercise? Matches by library link, current/previous names and library aliases. */
 function matchesExercise(log: { exercise_name: string; library_exercise_id?: string | null }, ex: ExerciseWithHistory) {
-  if (ex.library_exercise_id && log.library_exercise_id === ex.library_exercise_id) return true
+  const libId = ex.library?.id ?? ex.library_exercise_id
+  if (libId && log.library_exercise_id === libId) return true
   const keys = new Set([ex.name, ...(ex.previous_names || []), ...(ex.library ? [ex.library.name, ...ex.library.aliases] : [])].map(normalizeExerciseName))
   return keys.has(normalizeExerciseName(log.exercise_name))
 }
@@ -117,25 +118,25 @@ export default function WorkoutTracker({ clientId }: Props) {
   }, [sets, selectedTemplate, loading, clientId])
 
   async function loadHistory(currentSessionId: string, exs: ExerciseWithHistory[]) {
-    // Load all sessions except the current one, most recent first
-    const { data: pastSessions } = await supabase
-      .from('workout_sessions')
-      .select('id, session_date')
-      .eq('client_id', clientId)
-      .neq('id', currentSessionId)
-      .order('session_date', { ascending: false })
-      .limit(10)
-
-    if (!pastSessions || pastSessions.length === 0) return
-
+    // Start from logged sets (not sessions) so empty, never-logged sessions can't
+    // push real history out of view.
     const { data: setData } = await supabase
       .from('set_logs')
       .select('session_id, exercise_name, library_exercise_id, set_number, weight_lbs, reps')
-      .in('session_id', pastSessions.map(s => s.id))
       .eq('client_id', clientId)
+      .neq('session_id', currentSessionId)
+      .order('created_at', { ascending: false })
+      .limit(3000)
+
+    if (!setData || setData.length === 0) return
+
+    const { data: pastSessions } = await supabase
+      .from('workout_sessions')
+      .select('id, session_date')
+      .in('id', [...new Set(setData.map(s => s.session_id))])
 
     const sessionDateMap: Record<string, string> = {}
-    for (const s of pastSessions) sessionDateMap[s.id] = s.session_date
+    for (const s of pastSessions || []) sessionDateMap[s.id] = s.session_date
 
     setExercises(prev => prev.map(ex => {
       const pastSets = (setData || []).filter(s => matchesExercise(s, ex))
@@ -170,14 +171,10 @@ export default function WorkoutTracker({ clientId }: Props) {
 
     if (!exs) { setLoading(false); return }
 
-    // Pull diagrams/instructions for exercises linked to the coach's library
-    const libIds = [...new Set(exs.map(e => e.library_exercise_id).filter(Boolean))] as string[]
-    const libMap: Record<string, LibraryExercise> = {}
-    if (libIds.length) {
-      const { data: libRows } = await supabase.from('exercise_library').select('*').in('id', libIds)
-      for (const l of libRows || []) libMap[l.id] = l
-    }
-    const withLib: ExerciseWithHistory[] = exs.map(ex => ({ ...ex, sessionHistory: [], library: ex.library_exercise_id ? libMap[ex.library_exercise_id] : undefined }))
+    // Attach library instructions: by link, or automatically by name/alias so older programs get them too
+    const { data: libRows } = await supabase.from('exercise_library').select('*')
+    const library = (libRows || []) as LibraryExercise[]
+    const withLib: ExerciseWithHistory[] = exs.map(ex => ({ ...ex, sessionHistory: [], library: findLibraryMatch(ex, library) }))
 
     // Set exercises with empty history initially
     setExercises(withLib)
@@ -314,7 +311,7 @@ export default function WorkoutTracker({ clientId }: Props) {
       session_id: sessionId,
       client_id: clientId,
       exercise_name: ex.name,
-      library_exercise_id: ex.library_exercise_id ?? null,
+      library_exercise_id: ex.library?.id ?? ex.library_exercise_id ?? null,
       set_number: setIndex + 1,
       weight_lbs: s.weight ? parseFloat(s.weight) : null,
       reps: s.reps ? parseInt(s.reps) : null,
@@ -347,7 +344,7 @@ export default function WorkoutTracker({ clientId }: Props) {
           session_id: sessionId,
           client_id: clientId,
           exercise_name: ex.name,
-          library_exercise_id: ex.library_exercise_id ?? null,
+          library_exercise_id: ex.library?.id ?? ex.library_exercise_id ?? null,
           set_number: i + 1,
           weight_lbs: s.weight ? parseFloat(s.weight) : null,
           reps: s.reps ? parseInt(s.reps) : null,
@@ -507,12 +504,11 @@ export default function WorkoutTracker({ clientId }: Props) {
       {exercises.map(ex => (
         <div key={ex.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3">
           <div className="flex items-start gap-3">
-            {ex.library && <ExerciseDiagram imageUrl={ex.library.image_url} name={ex.name} size="sm" className="!w-14 !h-14" />}
-            <div className="min-w-0 flex-1">
+                        <div className="min-w-0 flex-1">
               <h4 className="font-medium text-white">{ex.name}</h4>
               {ex.library?.muscle_group && <p className="text-zinc-500 text-xs mt-0.5">{[ex.library.muscle_group, ex.library.equipment].filter(Boolean).join(' · ')}</p>}
             </div>
-            {ex.library && (ex.library.instructions || ex.library.cues || ex.library.image_url) && (
+            {ex.library && (ex.library.instructions || ex.library.cues) && (
               <button
                 onClick={() => setOpenHowTo(p => ({ ...p, [ex.id]: !p[ex.id] }))}
                 className="flex items-center gap-1 text-xs shrink-0 px-2 py-1 rounded-lg"

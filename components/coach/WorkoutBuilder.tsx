@@ -10,7 +10,7 @@ import { Plus, Trash2, ChevronDown, ChevronRight, GripVertical, Pencil, Check, X
 import LibraryPicker from './LibraryPicker'
 import SetSchemeEditor, { SchemeValue, emptyScheme, schemeFromRow, schemeToColumns } from './SetSchemeEditor'
 import ExerciseDiagram from '@/components/shared/ExerciseDiagram'
-import { setSchemeLabel } from '@/lib/exerciseNames'
+import { findLibraryMatch, setSchemeLabel } from '@/lib/exerciseNames'
 
 interface Props {
   clientId: string
@@ -136,7 +136,7 @@ export default function WorkoutBuilder({ clientId, coachId }: Props) {
       client_id: clientId,
       name: n.name.trim(),
       display_order: order,
-      library_exercise_id: n.libraryId,
+      library_exercise_id: n.libraryId ?? findLibraryMatch({ name: n.name }, libraryExercises)?.id ?? null,
       ...schemeToColumns(n.scheme),
       exercise_notes: n.notes || null,
     }).select().single()
@@ -200,7 +200,7 @@ export default function WorkoutBuilder({ clientId, coachId }: Props) {
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-xs text-zinc-500 px-1">
         <BookOpen className="w-3.5 h-3.5" style={{ color: '#C9A84C' }} />
-        {libraryExercises.length} exercises in your library — add or edit them (and their diagrams) in the Exercise Library tab.
+        {libraryExercises.length} exercises in your library — add or edit them in the Exercise Library tab.
       </div>
 
       {/* Add Workout Day */}
@@ -305,7 +305,7 @@ export default function WorkoutBuilder({ clientId, coachId }: Props) {
                         {(ex.target_sets || ex.target_reps) && (
                           <span className="ml-2 text-xs" style={{ color: '#C9A84C' }}>{setSchemeLabel(ex)}</span>
                         )}
-                        {!ex.library_exercise_id && <span className="ml-2 text-[10px] uppercase tracking-wide text-zinc-600">custom</span>}
+                        {!findLibraryMatch(ex, libraryExercises) && <span className="ml-2 text-[10px] uppercase tracking-wide text-zinc-600">custom</span>}
                         {ex.exercise_notes && <span className="ml-2 text-zinc-600 text-xs italic">{ex.exercise_notes}</span>}
                       </div>
                       <div className="flex gap-1.5">

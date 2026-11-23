@@ -29,3 +29,19 @@ export function setSchemeLabel(ex: { set_scheme?: SetTarget[] | null; target_set
   if (allSame) return `${t.length} set${t.length === 1 ? '' : 's'}${t[0].reps ? ` × ${t[0].reps}` : ''}`
   return t.map(s => s.reps || '—').join(' / ')
 }
+
+/**
+ * Find the library entry for a programmed exercise: by its library link first,
+ * otherwise automatically by name / old names / library aliases.
+ */
+export function findLibraryMatch<T extends { id: string; name: string; aliases: string[] }>(
+  ex: { name: string; library_exercise_id?: string | null; previous_names?: string[] | null },
+  library: T[],
+): T | undefined {
+  if (ex.library_exercise_id) {
+    const linked = library.find(l => l.id === ex.library_exercise_id)
+    if (linked) return linked
+  }
+  const keys = new Set([ex.name, ...(ex.previous_names || [])].map(normalizeExerciseName))
+  return library.find(l => [l.name, ...l.aliases].some(n => keys.has(normalizeExerciseName(n))))
+}

@@ -4,9 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { LibraryExercise } from '@/lib/types'
 import { normalizeExerciseName } from '@/lib/exerciseNames'
-import ExerciseDiagram from '@/components/shared/ExerciseDiagram'
 import { toast } from 'sonner'
-import { Plus, Search, X, Upload, Trash2, ImageOff } from 'lucide-react'
+import { Plus, Search, X, Trash2 } from 'lucide-react'
 
 export const MUSCLE_GROUPS = ['Chest', 'Back', 'Shoulders', 'Biceps', 'Triceps', 'Forearms', 'Quads', 'Hamstrings', 'Glutes', 'Adductors', 'Calves', 'Abs']
 const EQUIPMENT = ['Barbell', 'Dumbbell', 'EZ bar', 'Cable', 'Machine', 'Smith machine', 'Kettlebell', 'Bodyweight']
@@ -37,7 +36,6 @@ export default function ExerciseLibrary({ coachId }: { coachId: string }) {
   const [muscle, setMuscle] = useState<string | null>(null)
   const [draft, setDraft] = useState<Draft | null>(null)
   const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     supabase.from('exercise_library').select('*').eq('coach_id', coachId).order('name')
@@ -54,8 +52,6 @@ export default function ExerciseLibrary({ coachId }: { coachId: string }) {
       return words.every(w => hay.includes(w))
     })
   }, [library, search, muscle])
-
-  const withImages = library.filter(e => e.image_url).length
 
   function open(ex?: LibraryExercise) {
     setDraft(ex ? {
@@ -111,25 +107,12 @@ export default function ExerciseLibrary({ coachId }: { coachId: string }) {
     toast.success('Removed from library')
   }
 
-  async function uploadImage(file: File) {
-    if (!draft) return
-    setUploading(true)
-    const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg'
-    const path = `${coachId}/${normalizeExerciseName(draft.name || 'exercise').replace(/[^a-z0-9]+/g, '-')}-${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('exercise-images').upload(path, file, { contentType: file.type, upsert: true })
-    setUploading(false)
-    if (error) { toast.error('Image upload failed'); return }
-    const { data } = supabase.storage.from('exercise-images').getPublicUrl(path)
-    setDraft(d => d ? { ...d, image_url: data.publicUrl } : d)
-    toast.success('Diagram uploaded — save to keep it')
-  }
-
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3 justify-between">
         <div>
           <h2 className="text-white font-semibold">Exercise Library</h2>
-          <p className="text-zinc-500 text-xs mt-0.5">{library.length} exercises · {withImages} with diagrams</p>
+          <p className="text-zinc-500 text-xs mt-0.5">{library.length} exercises</p>
         </div>
         <button onClick={() => open()} className="flex items-center gap-1.5 text-sm font-semibold text-black px-3 py-2 rounded-lg" style={{ background: 'linear-gradient(135deg, #C9A84C, #E8C97A)' }}>
           <Plus className="w-4 h-4" /> New exercise
@@ -164,9 +147,9 @@ export default function ExerciseLibrary({ coachId }: { coachId: string }) {
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {visible.map(ex => (
             <button key={ex.id} onClick={() => open(ex)} className="text-left rounded-xl p-2.5 transition-colors hover:border-[rgba(201,168,76,0.4)]" style={{ background: '#111', border: '1px solid rgba(201,168,76,0.12)' }}>
-              <ExerciseDiagram imageUrl={ex.image_url} name={ex.name} />
-              <p className="text-zinc-100 text-sm font-medium mt-2 leading-snug">{ex.name}</p>
-              <p className="text-zinc-500 text-xs mt-0.5">{[ex.muscle_group, ex.equipment].filter(Boolean).join(' · ')}</p>
+              <p className="text-zinc-100 text-sm font-medium leading-snug">{ex.name}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#C9A84C' }}>{[ex.muscle_group, ex.equipment].filter(Boolean).join(' · ')}</p>
+              {ex.instructions && <p className="text-zinc-500 text-xs mt-1.5 leading-relaxed line-clamp-3">{ex.instructions}</p>}
             </button>
           ))}
         </div>
@@ -180,22 +163,7 @@ export default function ExerciseLibrary({ coachId }: { coachId: string }) {
               <button onClick={() => setDraft(null)} className="text-zinc-500 hover:text-white" aria-label="Close"><X className="w-5 h-5" /></button>
             </div>
 
-            <div className="grid sm:grid-cols-[220px_1fr] gap-4">
-              <div className="space-y-2">
-                <ExerciseDiagram imageUrl={draft.image_url} name={draft.name} size="lg" />
-                <div className="flex gap-2">
-                  <label className="flex-1 flex items-center justify-center gap-1.5 text-xs text-zinc-300 bg-zinc-800 hover:bg-zinc-700 rounded-lg py-2 cursor-pointer">
-                    <Upload className="w-3.5 h-3.5" /> {uploading ? 'Uploading…' : draft.image_url ? 'Replace diagram' : 'Upload diagram'}
-                    <input type="file" accept="image/png,image/jpeg,image/webp" className="hidden" disabled={uploading} onChange={e => { const f = e.target.files?.[0]; if (f) uploadImage(f); e.target.value = '' }} />
-                  </label>
-                  {draft.image_url && (
-                    <button onClick={() => setDraft({ ...draft, image_url: null })} className="px-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400" title="Remove diagram" aria-label="Remove diagram">
-                      <ImageOff className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-              </div>
-
+            <div>
               <div className="space-y-3">
                 <div className="space-y-1">
                   <label className={labelCls}>Name</label>
